@@ -201,7 +201,7 @@ func (s *EtcdOptions) addEtcdHealthEndpoint(c *server.Config) error {
 	if err != nil {
 		return err
 	}
-	c.HealthzChecks = append(c.HealthzChecks, healthz.NamedCheck("etcd", func(r *http.Request) error {
+	c.HealthzChecks = append(c.HealthzChecks, healthz.NamedCheck("etcdb", func(r *http.Request) error {
 		return healthCheck()
 	}))
 	return nil
@@ -217,7 +217,7 @@ func (f *SimpleRestOptionsFactory) GetRESTOptions(resource schema.GroupResource)
 		Decorator:               generic.UndecoratedStorage,
 		EnableGarbageCollection: f.Options.EnableGarbageCollection,
 		DeleteCollectionWorkers: f.Options.DeleteCollectionWorkers,
-		ResourcePrefix:          resource.Group + "/" + resource.Resource,
+		ResourcePrefix:          resource.GetResourcePrefix(),
 		CountMetricPollPeriod:   f.Options.StorageConfig.CountMetricPollPeriod,
 	}
 	if f.Options.EnableWatchCache {

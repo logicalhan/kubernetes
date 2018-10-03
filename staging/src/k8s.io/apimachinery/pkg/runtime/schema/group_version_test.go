@@ -68,6 +68,24 @@ func TestGroupResourceParse(t *testing.T) {
 	}
 }
 
+func TestGroupResource_GetResourcePrefix(t *testing.T) {
+	tests := []struct {
+		input GroupResource
+		output string
+	} {
+		{input: GroupResource{Resource: "v1", Group: "a"}, output: "a/v1"},
+		{input: GroupResource{Resource: "v1"}, output: "/v1"},
+		{input: GroupResource{Group: "a"}, output: "a/"},
+		{input: GroupResource{}, output: "/"},
+	}
+	for i, test := range tests {
+		out := test.input.GetResourcePrefix()
+		if out != test.output {
+			t.Errorf("%d: unexpected output: %#v", i, out)
+		}
+	}
+}
+
 func TestParseResourceArg(t *testing.T) {
 	tests := []struct {
 		input string
