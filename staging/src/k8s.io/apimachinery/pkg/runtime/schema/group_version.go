@@ -73,6 +73,10 @@ func (gr GroupResource) String() string {
 	return gr.Resource + "." + gr.Group
 }
 
+func (gr GroupResource) GetResourcePrefix() string {
+	return gr.Group + "/" + gr.Resource
+}
+
 func ParseGroupKind(gk string) GroupKind {
 	i := strings.Index(gk, ".")
 	if i == -1 {
