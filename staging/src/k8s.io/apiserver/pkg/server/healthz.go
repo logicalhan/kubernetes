@@ -18,7 +18,7 @@ package server
 
 import (
 	"fmt"
-
+	"github.com/golang/glog"
 	"k8s.io/apiserver/pkg/server/healthz"
 )
 
@@ -26,6 +26,7 @@ import (
 func (s *GenericAPIServer) AddHealthzChecks(checks ...healthz.HealthzChecker) error {
 	s.healthzLock.Lock()
 	defer s.healthzLock.Unlock()
+	glog.Infof("Adding health checks - %v \n", checks)
 
 	if s.healthzCreated {
 		return fmt.Errorf("unable to add because the healthz endpoint has already been created")
@@ -35,6 +36,33 @@ func (s *GenericAPIServer) AddHealthzChecks(checks ...healthz.HealthzChecker) er
 	return nil
 }
 
+func (s *GenericAPIServer) AddHealthzReadinessChecks(checks ...healthz.HealthzChecker) error {
+	s.healthzLock.Lock()
+	defer s.healthzLock.Unlock()
+	glog.Infof("Adding health readiness checks - %v \n", checks)
+
+	if s.healthzCreated {
+		return fmt.Errorf("unable to add because the healthz endpoint has already been created")
+	}
+
+	s.healthzReadinessChecks = append(s.healthzReadinessChecks, checks...)
+	return nil
+}
+
+func (s *GenericAPIServer) AddHealthzLivenessChecks(checks ...healthz.HealthzChecker) error {
+	s.healthzLock.Lock()
+	defer s.healthzLock.Unlock()
+	glog.Infof("Adding health liveness checks - %v \n", checks)
+
+	if s.healthzCreated {
+		return fmt.Errorf("unable to add because the healthz endpoint has already been created")
+	}
+
+	s.healthzLivenessChecks = append(s.healthzLivenessChecks, checks...)
+	return nil
+}
+
+
 // installHealthz creates the healthz endpoint for this server
 func (s *GenericAPIServer) installHealthz() {
 	s.healthzLock.Lock()
@@ -42,4 +70,6 @@ func (s *GenericAPIServer) installHealthz() {
 	s.healthzCreated = true
 
 	healthz.InstallHandler(s.Handler.NonGoRestfulMux, s.healthzChecks...)
+	healthz.InstallPathHandler(s.Handler.NonGoRestfulMux, "/healthz/v2/liveness", s.healthzLivenessChecks...)
+	healthz.InstallPathHandler(s.Handler.NonGoRestfulMux, "/healthz/v2/readiness", s.healthzReadinessChecks...)
 }

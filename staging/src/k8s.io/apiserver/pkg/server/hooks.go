@@ -93,6 +93,7 @@ func (s *GenericAPIServer) AddPostStartHook(name string, hook PostStartHookFunc)
 	// that the poststarthook is finished
 	done := make(chan struct{})
 	s.AddHealthzChecks(postStartHookHealthz{name: "poststarthook/" + name, done: done})
+	s.AddHealthzReadinessChecks(postStartHookHealthz{name: "poststarthook/" + name, done: done})
 	s.postStartHooks[name] = postStartHookEntry{hook: hook, done: done}
 
 	return nil

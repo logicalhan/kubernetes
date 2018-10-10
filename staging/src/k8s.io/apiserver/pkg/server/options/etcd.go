@@ -196,9 +196,14 @@ func (s *EtcdOptions) addEtcdHealthEndpoint(c *server.Config) error {
 	if err != nil {
 		return err
 	}
+	c.HealthzReadinessChecks = append(c.HealthzReadinessChecks, healthz.NamedCheck("etcd", func(r *http.Request) error {
+		return healthCheck()
+	}))
+
 	c.HealthzChecks = append(c.HealthzChecks, healthz.NamedCheck("etcd", func(r *http.Request) error {
 		return healthCheck()
 	}))
+
 	return nil
 }
 

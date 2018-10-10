@@ -134,6 +134,8 @@ type GenericAPIServer struct {
 	// healthz checks
 	healthzLock    sync.Mutex
 	healthzChecks  []healthz.HealthzChecker
+	healthzLivenessChecks []healthz.HealthzChecker
+	healthzReadinessChecks []healthz.HealthzChecker
 	healthzCreated bool
 
 	// auditing. The backend is started after the server starts listening.

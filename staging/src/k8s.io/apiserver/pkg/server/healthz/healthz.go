@@ -112,7 +112,7 @@ func InstallPathHandler(mux mux, path string, checks ...HealthzChecker) {
 		checks = []HealthzChecker{PingHealthz}
 	}
 
-	glog.V(5).Info("Installing healthz checkers:", strings.Join(checkerNames(checks...), ", "))
+	glog.V(0).Info("Installing healthz checkers:", strings.Join(checkerNames(checks...), ", "))
 
 	mux.Handle(path, handleRootHealthz(checks...))
 	for _, check := range checks {

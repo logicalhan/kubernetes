@@ -134,6 +134,10 @@ type Config struct {
 	DiscoveryAddresses discovery.Addresses
 	// The default set of healthz checks. There might be more added via AddHealthzChecks dynamically.
 	HealthzChecks []healthz.HealthzChecker
+	// The default set of healthz checks. There might be more added via AddHealthzChecks dynamically.
+	HealthzLivenessChecks []healthz.HealthzChecker
+	// The default set of healthz checks. There might be more added via AddHealthzChecks dynamically.
+	HealthzReadinessChecks []healthz.HealthzChecker
 	// LegacyAPIGroupPrefixes is used to set up URL parsing for authorization and for validating requests
 	// to InstallLegacyAPIGroup. New API servers don't generally have legacy groups at all.
 	LegacyAPIGroupPrefixes sets.String
@@ -250,6 +254,8 @@ func NewConfig(codecs serializer.CodecFactory) *Config {
 		LegacyAPIGroupPrefixes:       sets.NewString(DefaultLegacyAPIPrefix),
 		DisabledPostStartHooks:       sets.NewString(),
 		HealthzChecks:                []healthz.HealthzChecker{healthz.PingHealthz, healthz.LogHealthz},
+		HealthzLivenessChecks: 	 	  []healthz.HealthzChecker{healthz.PingHealthz},
+		HealthzReadinessChecks:       []healthz.HealthzChecker{healthz.LogHealthz},
 		EnableIndex:                  true,
 		EnableDiscovery:              true,
 		EnableProfiling:              true,
@@ -427,7 +433,7 @@ func (c *RecommendedConfig) Complete() CompletedConfig {
 }
 
 // New creates a new server which logically combines the handling chain with the passed server.
-// name is used to differentiate for logging. The handler chain in particular can be difficult as it starts delgating.
+// name is used to differentiate for logging. The handler chain in particular can be difficult as it starts delegating.
 // delegationTarget may not be nil.
 func (c completedConfig) New(name string, delegationTarget DelegationTarget) (*GenericAPIServer, error) {
 	if c.Serializer == nil {
@@ -471,6 +477,8 @@ func (c completedConfig) New(name string, delegationTarget DelegationTarget) (*G
 		disabledPostStartHooks: c.DisabledPostStartHooks,
 
 		healthzChecks: c.HealthzChecks,
+		healthzReadinessChecks: c.HealthzReadinessChecks,
+		healthzLivenessChecks: c.HealthzLivenessChecks,
 
 		DiscoveryGroupManager: discovery.NewRootAPIsHandler(c.DiscoveryAddresses, c.Serializer),
 
@@ -509,6 +517,8 @@ func (c completedConfig) New(name string, delegationTarget DelegationTarget) (*G
 		}
 
 		s.healthzChecks = append(s.healthzChecks, delegateCheck)
+		s.healthzLivenessChecks = append(s.healthzLivenessChecks, delegateCheck)
+		s.healthzReadinessChecks = append(s.healthzReadinessChecks, delegateCheck)
 	}
 
 	s.listedPathProvider = routes.ListedPathProviders{s.listedPathProvider, delegationTarget}
