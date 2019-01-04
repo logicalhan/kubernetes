@@ -177,10 +177,37 @@ func (m *PathRecorderMux) Handle(path string, handler http.Handler) {
 	m.refreshMuxLocked()
 }
 
+func mimeTypeHandleFuncWrapper(mimetype string, handler http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("mime/type", mimetype)
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		handler.ServeHTTP(w, r)
+	})
+}
+
+// Handle registers the handler for the given pattern.
+// If a handler already exists for pattern, Handle panics.
+func (m *PathRecorderMux) HandleWithMimeType(path string, mimeType string, handler http.Handler) {
+	m.lock.Lock()
+	defer m.lock.Unlock()
+	m.trackCallers(path)
+
+	m.exposedPaths = append(m.exposedPaths, path)
+	m.pathToHandler[path] = mimeTypeHandleFuncWrapper(mimeType, handler)
+	m.refreshMuxLocked()
+}
+
+
 // HandleFunc registers the handler function for the given pattern.
 // If a handler already exists for pattern, Handle panics.
 func (m *PathRecorderMux) HandleFunc(path string, handler func(http.ResponseWriter, *http.Request)) {
 	m.Handle(path, http.HandlerFunc(handler))
+}
+
+// HandleFunc registers the handler function for the given pattern.
+// If a handler already exists for pattern, Handle panics.
+func (m *PathRecorderMux) HandleWithMimeTypeFunc(path string, mimeType string, handler func(http.ResponseWriter, *http.Request)) {
+	m.HandleWithMimeType(path, mimeType, http.HandlerFunc(handler))
 }
 
 // UnlistedHandle registers the handler for the given pattern, but doesn't list it.
