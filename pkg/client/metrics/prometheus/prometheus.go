@@ -20,6 +20,7 @@ package prometheus
 
 import (
 	"net/url"
+	"sync"
 	"time"
 
 	"k8s.io/client-go/tools/metrics"
@@ -28,6 +29,8 @@ import (
 )
 
 var (
+	registerMetrics sync.Once
+
 	// requestLatency is a Prometheus Summary metric type partitioned by
 	// "verb" and "url" labels. It is used for the rest client latency metrics.
 	requestLatency = prometheus.NewHistogramVec(
@@ -58,10 +61,15 @@ var (
 	)
 )
 
+// todo: remove the init function and call the register function with a custom registerer
 func init() {
-	prometheus.MustRegister(requestLatency)
-	prometheus.MustRegister(deprecatedRequestLatency)
-	prometheus.MustRegister(requestResult)
+	Register(prometheus.DefaultRegisterer)
+}
+
+func Register(registry prometheus.Registerer) {
+	registry.MustRegister(requestLatency)
+	registry.MustRegister(deprecatedRequestLatency)
+	registry.MustRegister(requestResult)
 	metrics.Register(&latencyAdapter{m: requestLatency, dm: deprecatedRequestLatency}, &resultAdapter{requestResult})
 }
 

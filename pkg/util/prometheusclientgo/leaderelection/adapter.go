@@ -19,26 +19,40 @@ package prometheus
 import (
 	"github.com/prometheus/client_golang/prometheus"
 	"k8s.io/client-go/tools/leaderelection"
+	"sync"
 )
 
-// Package prometheus sets the workqueue DefaultMetricsFactory to produce
-// prometheus metrics. To use this package, you just have to import it.
 
-func init() {
-	leaderelection.SetProvider(prometheusMetricsProvider{})
-}
-
-type prometheusMetricsProvider struct{}
-
-func (prometheusMetricsProvider) NewLeaderMetric() leaderelection.SwitchMetric {
-	leaderGauge := prometheus.NewGaugeVec(
+var (
+	leaderGauge = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Name: "leader_election_master_status",
 			Help: "Gauge of if the reporting system is master of the relevant lease, 0 indicates backup, 1 indicates master. 'name' is the string used to identify the lease. Please make sure to group by name.",
 		},
 		[]string{"name"},
 	)
-	prometheus.Register(leaderGauge)
+
+	registerMetrics sync.Once
+)
+
+// Package prometheus sets the workqueue DefaultMetricsFactory to produce
+// prometheus metrics. To use this package, you just have to import it.
+
+// todo: remove the init function and call the register function with a custom registerer
+func init() {
+	Register(prometheus.DefaultRegisterer)
+}
+
+func Register(registerer prometheus.Registerer) {
+	registerMetrics.Do(func() {
+		registerer.MustRegister(leaderGauge)
+		leaderelection.SetProvider(prometheusMetricsProvider{})
+	})
+}
+
+type prometheusMetricsProvider struct{}
+
+func (prometheusMetricsProvider) NewLeaderMetric() leaderelection.SwitchMetric {
 	return &switchAdapter{gauge: leaderGauge}
 }
 
