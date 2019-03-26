@@ -177,10 +177,10 @@ const (
 var registerMetrics sync.Once
 
 // Register all metrics.
-func Register() {
+func Register(registerer prometheus.Registerer) {
 	registerMetrics.Do(func() {
 		for _, metric := range metrics {
-			prometheus.MustRegister(metric)
+			registerer.MustRegister(metric)
 		}
 	})
 }

@@ -17,14 +17,17 @@ limitations under the License.
 package routes
 
 import (
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"io"
 	"net/http"
 
+	"github.com/prometheus/client_golang/prometheus"
 	apimetrics "k8s.io/apiserver/pkg/endpoints/metrics"
 	"k8s.io/apiserver/pkg/server/mux"
 	etcdmetrics "k8s.io/apiserver/pkg/storage/etcd/metrics"
-
-	"github.com/prometheus/client_golang/prometheus"
+	clientmetrics "k8s.io/kubernetes/pkg/util/prometheusclientgo"      // load all the prometheus client-go plugins
+	workqueuemetrics "k8s.io/kubernetes/pkg/util/workqueue/prometheus" // for workqueue metric registration
+	versionmetrics "k8s.io/kubernetes/pkg/version/prometheus"          // for version metric registration
 )
 
 // DefaultMetrics installs the default prometheus metrics handler
@@ -32,8 +35,9 @@ type DefaultMetrics struct{}
 
 // Install adds the DefaultMetrics handler
 func (m DefaultMetrics) Install(c *mux.PathRecorderMux) {
-	register()
-	c.Handle("/metrics", prometheus.Handler())
+	r := prometheus.NewRegistry()
+	register(r)
+	c.Handle("/metrics", promhttp.HandlerFor(r, promhttp.HandlerOpts{ErrorHandling: promhttp.ContinueOnError}))
 }
 
 // MetricsWithReset install the prometheus metrics handler extended with support for the DELETE method
@@ -42,8 +46,9 @@ type MetricsWithReset struct{}
 
 // Install adds the MetricsWithReset handler
 func (m MetricsWithReset) Install(c *mux.PathRecorderMux) {
-	register()
-	defaultMetricsHandler := prometheus.Handler().ServeHTTP
+	r := prometheus.NewRegistry()
+	register(r)
+	defaultMetricsHandler := promhttp.HandlerFor(r, promhttp.HandlerOpts{ErrorHandling: promhttp.ContinueOnError}).ServeHTTP
 	c.HandleFunc("/metrics", func(w http.ResponseWriter, req *http.Request) {
 		if req.Method == "DELETE" {
 			apimetrics.Reset()
@@ -56,7 +61,11 @@ func (m MetricsWithReset) Install(c *mux.PathRecorderMux) {
 }
 
 // register apiserver and etcd metrics
-func register() {
-	apimetrics.Register()
-	etcdmetrics.Register()
+func register(registerer prometheus.Registerer) {
+	apimetrics.Register(registerer)
+	etcdmetrics.Register(registerer)
+	versionmetrics.Register(registerer)
+	workqueuemetrics.Register(registerer)
+	clientmetrics.Register(registerer)
+
 }

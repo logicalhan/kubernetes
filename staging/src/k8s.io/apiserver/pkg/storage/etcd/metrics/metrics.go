@@ -107,24 +107,24 @@ var (
 var registerMetrics sync.Once
 
 // Register all metrics.
-func Register() {
+func Register(registerer prometheus.Registerer) {
 	// Register the metrics.
 	registerMetrics.Do(func() {
-		prometheus.MustRegister(cacheHitCounter)
-		prometheus.MustRegister(cacheMissCounter)
-		prometheus.MustRegister(cacheEntryCounter)
-		prometheus.MustRegister(cacheAddLatency)
-		prometheus.MustRegister(cacheGetLatency)
-		prometheus.MustRegister(etcdRequestLatency)
-		prometheus.MustRegister(objectCounts)
+		registerer.MustRegister(cacheHitCounter)
+		registerer.MustRegister(cacheMissCounter)
+		registerer.MustRegister(cacheEntryCounter)
+		registerer.MustRegister(cacheAddLatency)
+		registerer.MustRegister(cacheGetLatency)
+		registerer.MustRegister(etcdRequestLatency)
+		registerer.MustRegister(objectCounts)
 
 		// TODO(danielqsj): Remove the following metrics, they are deprecated
-		prometheus.MustRegister(deprecatedCacheHitCounter)
-		prometheus.MustRegister(deprecatedCacheMissCounter)
-		prometheus.MustRegister(deprecatedCacheEntryCounter)
-		prometheus.MustRegister(deprecatedCacheAddLatency)
-		prometheus.MustRegister(deprecatedCacheGetLatency)
-		prometheus.MustRegister(deprecatedEtcdRequestLatenciesSummary)
+		registerer.MustRegister(deprecatedCacheHitCounter)
+		registerer.MustRegister(deprecatedCacheMissCounter)
+		registerer.MustRegister(deprecatedCacheEntryCounter)
+		registerer.MustRegister(deprecatedCacheAddLatency)
+		registerer.MustRegister(deprecatedCacheGetLatency)
+		registerer.MustRegister(deprecatedEtcdRequestLatenciesSummary)
 	})
 }
 

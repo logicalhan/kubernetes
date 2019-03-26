@@ -56,6 +56,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/spf13/cobra"
 	"k8s.io/klog"
+	_ "k8s.io/kubernetes/pkg/util/prometheusclientgo" // load all the prometheus client-go plugins
+	_ "k8s.io/kubernetes/pkg/version/prometheus"      // for version metric registration
 )
 
 // NewSchedulerCommand creates a *cobra.Command object with default parameters
