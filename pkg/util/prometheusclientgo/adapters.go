@@ -18,7 +18,14 @@ package prometheusclientgo
 
 // Provided metrics needing adapting
 import (
-	_ "k8s.io/kubernetes/pkg/client/metrics/prometheus"              // for client metric registration
-	_ "k8s.io/kubernetes/pkg/util/prometheusclientgo/leaderelection" // for leader election metric registration
-	_ "k8s.io/kubernetes/pkg/util/workqueue/prometheus"              // for workqueue metric registration
+	"github.com/prometheus/client_golang/prometheus"
+	clientMetrics "k8s.io/kubernetes/pkg/client/metrics/prometheus"
+	leaderElectionMetrics "k8s.io/kubernetes/pkg/util/prometheusclientgo/leaderelection"
+	workqueueMetrics "k8s.io/kubernetes/pkg/util/workqueue/prometheus"
 )
+
+func Register(registerer prometheus.Registerer) {
+	clientMetrics.Register(registerer)
+	leaderElectionMetrics.Register(registerer)
+	workqueueMetrics.Register(registerer)
+}
