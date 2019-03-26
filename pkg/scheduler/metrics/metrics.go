@@ -216,14 +216,14 @@ var (
 var registerMetrics sync.Once
 
 // Register all metrics.
-func Register() {
+func Register(registerer prometheus.Registerer) {
 	// Register the metrics.
 	registerMetrics.Do(func() {
 		for _, metric := range metricsList {
-			prometheus.MustRegister(metric)
+			registerer.MustRegister(metric)
 		}
 
-		persistentvolume.RegisterVolumeSchedulingMetrics()
+		persistentvolume.RegisterVolumeSchedulingMetrics(registerer)
 	})
 }
 

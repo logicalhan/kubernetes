@@ -58,7 +58,7 @@ import (
 	"k8s.io/kubernetes/pkg/api/legacyscheme"
 	api "k8s.io/kubernetes/pkg/apis/core"
 	"k8s.io/kubernetes/pkg/apis/core/v1/validation"
-	_ "k8s.io/kubernetes/pkg/client/metrics/prometheus" // for client metric registration
+	clientmetrics "k8s.io/kubernetes/pkg/client/metrics/prometheus" // for client metric registration
 	"k8s.io/kubernetes/pkg/kubelet/apis/podresources"
 	podresourcesapi "k8s.io/kubernetes/pkg/kubelet/apis/podresources/v1alpha1"
 	"k8s.io/kubernetes/pkg/kubelet/apis/resourcemetrics/v1alpha1"
@@ -71,7 +71,7 @@ import (
 	kubelettypes "k8s.io/kubernetes/pkg/kubelet/types"
 	"k8s.io/kubernetes/pkg/kubelet/util"
 	"k8s.io/kubernetes/pkg/util/configz"
-	_ "k8s.io/kubernetes/pkg/version/prometheus" // for version metric registration
+	versionmetrics "k8s.io/kubernetes/pkg/version/prometheus" // for version metric registration
 )
 
 const (
@@ -294,7 +294,9 @@ func (s *Server) InstallDefaultHandlers() {
 	s.restfulCont.Add(ws)
 
 	s.restfulCont.Add(stats.CreateHandlers(statsPath, s.host, s.resourceAnalyzer))
-	s.restfulCont.Handle(metricsPath, prometheus.Handler())
+	genericMetricsRegistery := prometheus.NewRegistry()
+	registerMetrics(genericMetricsRegistery)
+	s.restfulCont.Handle(metricsPath, promhttp.HandlerFor(genericMetricsRegistery, promhttp.HandlerOpts{ErrorHandling: promhttp.ContinueOnError}))
 
 	// cAdvisor metrics are exposed under the secured handler as well
 	r := prometheus.NewRegistry()
@@ -339,6 +341,11 @@ func (s *Server) InstallDefaultHandlers() {
 }
 
 const pprofBasePath = "/debug/pprof/"
+
+func registerMetrics(registerer prometheus.Registerer) {
+	versionmetrics.Register(registerer)
+	clientmetrics.Register(registerer)
+}
 
 // InstallDebuggingHandlers registers the HTTP request patterns that serve logs or run commands/containers
 func (s *Server) InstallDebuggingHandlers(criHandler http.Handler) {

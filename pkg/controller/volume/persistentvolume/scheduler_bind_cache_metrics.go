@@ -53,8 +53,8 @@ var (
 
 // RegisterVolumeSchedulingMetrics is used for scheduler, because the volume binding cache is a library
 // used by scheduler process.
-func RegisterVolumeSchedulingMetrics() {
-	prometheus.MustRegister(VolumeBindingRequestSchedulerBinderCache)
-	prometheus.MustRegister(VolumeSchedulingStageLatency)
-	prometheus.MustRegister(VolumeSchedulingStageFailed)
+func RegisterVolumeSchedulingMetrics(registerer prometheus.Registerer) {
+	registerer.MustRegister(VolumeBindingRequestSchedulerBinderCache)
+	registerer.MustRegister(VolumeSchedulingStageLatency)
+	registerer.MustRegister(VolumeSchedulingStageFailed)
 }

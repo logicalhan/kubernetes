@@ -61,11 +61,6 @@ var (
 	)
 )
 
-// todo: remove the init function and call the register function with a custom registerer
-func init() {
-	Register(prometheus.DefaultRegisterer)
-}
-
 func Register(registry prometheus.Registerer) {
 	registry.MustRegister(requestLatency)
 	registry.MustRegister(deprecatedRequestLatency)

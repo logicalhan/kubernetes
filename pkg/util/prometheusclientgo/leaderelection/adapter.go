@@ -38,10 +38,6 @@ var (
 // Package prometheus sets the workqueue DefaultMetricsFactory to produce
 // prometheus metrics. To use this package, you just have to import it.
 
-// todo: remove the init function and call the register function with a custom registerer
-func init() {
-	Register(prometheus.DefaultRegisterer)
-}
 
 func Register(registerer prometheus.Registerer) {
 	registerMetrics.Do(func() {

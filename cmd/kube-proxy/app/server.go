@@ -21,6 +21,7 @@ package app
 import (
 	"errors"
 	"fmt"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -80,8 +81,8 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"k8s.io/klog"
-	_ "k8s.io/kubernetes/pkg/client/metrics/prometheus" // for client metric registration
-	_ "k8s.io/kubernetes/pkg/version/prometheus"        // for version metric registration
+	clientmetrics "k8s.io/kubernetes/pkg/client/metrics/prometheus" // for client metric registration
+	versionmetrics "k8s.io/kubernetes/pkg/version/prometheus"        // for version metric registration
 )
 
 const (
@@ -603,6 +604,9 @@ func (s *ProxyServer) Run() error {
 		})
 		// todo(han) kubemark metrics handling registration
 		mux.Handle("/metrics", prometheus.Handler())
+		r := prometheus.NewRegistry()
+		registerMetrics(r)
+		mux.Handle("/metrics", promhttp.HandlerFor(r, promhttp.HandlerOpts{ErrorHandling: promhttp.ContinueOnError}))
 		if s.EnableProfiling {
 			routes.Profiling{}.Install(mux)
 		}
@@ -683,6 +687,11 @@ func (s *ProxyServer) Run() error {
 	// Just loop forever for now...
 	s.Proxier.SyncLoop()
 	return nil
+}
+
+func registerMetrics(registerer prometheus.Registerer) {
+	versionmetrics.Register(registerer)
+	clientmetrics.Register(registerer)
 }
 
 func (s *ProxyServer) birthCry() {

@@ -18,6 +18,7 @@ package app
 
 import (
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"net/http"
 	goruntime "runtime"
 
@@ -32,8 +33,8 @@ import (
 	"k8s.io/kubernetes/pkg/api/legacyscheme"
 	"k8s.io/kubernetes/pkg/util/configz"
 
-	_ "k8s.io/kubernetes/pkg/util/prometheusclientgo" // load all the prometheus client-go plugin
-	_ "k8s.io/kubernetes/pkg/version/prometheus"      // for version metric registration
+	clientmetrics "k8s.io/kubernetes/pkg/util/prometheusclientgo" // load all the prometheus client-go plugin
+	versionmetrics "k8s.io/kubernetes/pkg/version/prometheus"      // for version metric registration
 )
 
 // BuildHandlerChain builds a handler chain with a base handler and CompletedConfig.
@@ -65,8 +66,14 @@ func NewBaseHandler(c *componentbaseconfig.DebuggingConfiguration, checks ...hea
 		}
 	}
 	configz.InstallHandler(mux)
-	// todo(han): controller-manager metrics registration
-	mux.Handle("/metrics", prometheus.Handler())
 
+	r := prometheus.NewRegistry()
+	registerMetrics(r)
+	mux.Handle("/metrics", promhttp.HandlerFor(r, promhttp.HandlerOpts{ErrorHandling: promhttp.ContinueOnError}))
 	return mux
+}
+
+func registerMetrics(registerer prometheus.Registerer) {
+	versionmetrics.Register(registerer)
+	clientmetrics.Register(registerer)
 }

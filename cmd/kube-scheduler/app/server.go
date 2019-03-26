@@ -20,6 +20,7 @@ package app
 import (
 	"context"
 	"fmt"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"io"
 	"net/http"
 	"os"
@@ -56,8 +57,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/spf13/cobra"
 	"k8s.io/klog"
-	_ "k8s.io/kubernetes/pkg/util/prometheusclientgo" // load all the prometheus client-go plugins
-	_ "k8s.io/kubernetes/pkg/version/prometheus"      // for version metric registration
+	clientmetrics "k8s.io/kubernetes/pkg/util/prometheusclientgo" // load all the prometheus client-go plugins
+	versionmetrics "k8s.io/kubernetes/pkg/version/prometheus"      // for version metric registration
 )
 
 // NewSchedulerCommand creates a *cobra.Command object with default parameters
@@ -285,7 +286,9 @@ func buildHandlerChain(handler http.Handler, authn authenticator.Request, authz 
 
 func installMetricHandler(pathRecorderMux *mux.PathRecorderMux) {
 	configz.InstallHandler(pathRecorderMux)
-	defaultMetricsHandler := prometheus.Handler().ServeHTTP
+	r := prometheus.NewRegistry()
+	registerMetrics(r)
+	defaultMetricsHandler := promhttp.HandlerFor(r, promhttp.HandlerOpts{ErrorHandling: promhttp.ContinueOnError}).ServeHTTP
 	pathRecorderMux.HandleFunc("/metrics", func(w http.ResponseWriter, req *http.Request) {
 		if req.Method == "DELETE" {
 			metrics.Reset()
@@ -294,6 +297,12 @@ func installMetricHandler(pathRecorderMux *mux.PathRecorderMux) {
 		}
 		defaultMetricsHandler(w, req)
 	})
+}
+
+func registerMetrics(registerer prometheus.Registerer) {
+	metrics.Register(registerer)
+	versionmetrics.Register(registerer)
+	clientmetrics.Register(registerer)
 }
 
 // newMetricsHandler builds a metrics server from the config.

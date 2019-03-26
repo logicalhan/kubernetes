@@ -36,10 +36,6 @@ var (
 	registerMetrics sync.Once
 )
 
-func init() {
-	Register(prometheus.DefaultRegisterer)
-}
-
 func Register(registerer prometheus.Registerer) {
 	registerMetrics.Do(func() {
 		info := version.Get()

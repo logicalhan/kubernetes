@@ -238,7 +238,6 @@ func initPolicyFromConfigMap(client clientset.Interface, policyRef *kubeschedule
 
 // NewFromConfig returns a new scheduler using the provided Config.
 func NewFromConfig(config *factory.Config) *Scheduler {
-	metrics.Register()
 	return &Scheduler{
 		config: config,
 	}
