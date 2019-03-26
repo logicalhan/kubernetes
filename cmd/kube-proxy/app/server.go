@@ -599,6 +599,7 @@ func (s *ProxyServer) Run() error {
 		mux.HandleFunc("/proxyMode", func(w http.ResponseWriter, r *http.Request) {
 			fmt.Fprintf(w, "%s", s.ProxyMode)
 		})
+		// todo(han) kubemark metrics handling registration
 		mux.Handle("/metrics", prometheus.Handler())
 		if s.EnableProfiling {
 			routes.Profiling{}.Install(mux)

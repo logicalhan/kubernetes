@@ -31,6 +31,9 @@ import (
 	componentbaseconfig "k8s.io/component-base/config"
 	"k8s.io/kubernetes/pkg/api/legacyscheme"
 	"k8s.io/kubernetes/pkg/util/configz"
+
+	_ "k8s.io/kubernetes/pkg/util/prometheusclientgo" // load all the prometheus client-go plugin
+	_ "k8s.io/kubernetes/pkg/version/prometheus"      // for version metric registration
 )
 
 // BuildHandlerChain builds a handler chain with a base handler and CompletedConfig.
@@ -62,6 +65,7 @@ func NewBaseHandler(c *componentbaseconfig.DebuggingConfiguration, checks ...hea
 		}
 	}
 	configz.InstallHandler(mux)
+	// todo(han): controller-manager metrics registration
 	mux.Handle("/metrics", prometheus.Handler())
 
 	return mux
