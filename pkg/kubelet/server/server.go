@@ -21,6 +21,8 @@ import (
 	"crypto/tls"
 	"fmt"
 	"io"
+	"k8s.io/apimachinery/pkg/util/wait"
+	metrics2 "k8s.io/kubernetes/pkg/util/metrics"
 	"net"
 	"net/http"
 	"net/http/pprof"
@@ -323,6 +325,35 @@ func (s *Server) InstallDefaultHandlers() {
 	p.MustRegister(prober.ProberResults)
 	s.restfulCont.Handle(proberMetricsPath,
 		promhttp.HandlerFor(p, promhttp.HandlerOpts{ErrorHandling: promhttp.ContinueOnError}),
+	)
+
+	kr := metrics2.NewKubeRegistry()
+
+	c := metrics2.NewCounter(metrics2.CounterOpts{
+		Name:              "blah_blah",
+		Subsystem:         "my_sub",
+		Help:              "Number of pendi",
+		DeprecatedVersion: metrics2.MustParseGeneric("1.15.0"),
+	})
+
+	cv := metrics2.NewCounterVec(
+		metrics2.CounterOpts{
+			Name:              "blah_blah_vec",
+			Subsystem:         "my_sub",
+			Help:              "Number of pendi",
+			DeprecatedVersion: metrics2.MustParseGeneric("1.15.0"),
+		},
+		[]string{"blah"},
+	)
+	kr.MustRegister(cv)
+	go wait.Forever(func() {
+		cv.WithLabelValues("hanlabel").Inc()
+		cv.WithLabelValues("hanlabel1").Inc()
+	}, time.Second*10)
+
+	kr.MustRegister(c.Metric)
+	s.restfulCont.Handle("/metrics/han",
+		promhttp.HandlerFor(kr, promhttp.HandlerOpts{ErrorHandling: promhttp.ContinueOnError}),
 	)
 
 	ws = new(restful.WebService)

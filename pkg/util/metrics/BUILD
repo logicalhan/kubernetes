@@ -8,7 +8,12 @@ load(
 
 go_library(
     name = "go_default_library",
-    srcs = ["util.go"],
+    srcs = [
+        "util.go",
+        "registry.go",
+        "version.go",
+        "counter.go",
+    ],
     importpath = "k8s.io/kubernetes/pkg/util/metrics",
     deps = [
         "//staging/src/k8s.io/client-go/util/flowcontrol:go_default_library",
