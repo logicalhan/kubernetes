@@ -4,14 +4,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
-type CounterOpts struct {
-	Namespace         string
-	Subsystem         string
-	Name              string
-	Help              string
-	ConstLabels       prometheus.Labels // todo: don't refer to prometheus specifically in our external API
-	DeprecatedVersion *Version
-}
+type CounterOpts Opts
 
 // convenience function to allow easy transformation to the prometheus
 // counterpart. This will do more once we have a proper label abstraction
