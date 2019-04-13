@@ -24,10 +24,9 @@ type KubeGauge struct {
 }
 
 type GaugeVec struct {
-    gVec              *prometheus.GaugeVec
+    vec              *prometheus.GaugeVec
     DeprecatedVersion *Version
 }
-
 
 func NewGauge(opts GaugeOpts) KubeGauge {
     g := prometheus.NewGauge(opts.toPromGaugeOpts())
@@ -39,28 +38,28 @@ func NewGaugeVec(opts GaugeOpts, labels []string) *GaugeVec {
     return &GaugeVec{gVec, opts.DeprecatedVersion}
 }
 
-func (v *GaugeVec) GetMetricWithLabelValues(lvs ...string) (prometheus.Gauge, error) {
-    return v.gVec.GetMetricWithLabelValues(lvs...)
+func (g *GaugeVec) GetMetricWithLabelValues(lvs ...string) (prometheus.Gauge, error) {
+    return g.vec.GetMetricWithLabelValues(lvs...)
 }
 
-func (v *GaugeVec) GetMetricWith(labels prometheus.Labels) (prometheus.Gauge, error) {
-    return v.gVec.GetMetricWith(labels)
+func (g *GaugeVec) GetMetricWith(labels prometheus.Labels) (prometheus.Gauge, error) {
+    return g.vec.GetMetricWith(labels)
 }
 
-func (v *GaugeVec) With(labels prometheus.Labels) prometheus.Gauge {
-    return v.gVec.With(labels)
+func (g *GaugeVec) With(labels prometheus.Labels) prometheus.Gauge {
+    return g.vec.With(labels)
 }
 
-func (v *GaugeVec) CurryWith(labels prometheus.Labels) (*GaugeVec, error) {
-    vec, err := v.gVec.CurryWith(labels)
+func (g *GaugeVec) CurryWith(labels prometheus.Labels) (*GaugeVec, error) {
+    vec, err := g.vec.CurryWith(labels)
     if vec != nil {
-        return &GaugeVec{vec, v.DeprecatedVersion}, err
+        return &GaugeVec{vec, g.DeprecatedVersion}, err
     }
     return nil, err
 }
 
-func (v *GaugeVec) MustCurryWith(labels prometheus.Labels) *GaugeVec {
-    vec, err := v.CurryWith(labels)
+func (g *GaugeVec) MustCurryWith(labels prometheus.Labels) *GaugeVec {
+    vec, err := g.CurryWith(labels)
     if err != nil {
         panic(err)
     }
@@ -69,16 +68,16 @@ func (v *GaugeVec) MustCurryWith(labels prometheus.Labels) *GaugeVec {
 
 // Describe implements Collector. It will send exactly one Desc to the provided
 // channel.
-func (v *GaugeVec) Describe(ch chan<- *prometheus.Desc) {
-    v.gVec.Describe(ch)
+func (g *GaugeVec) Describe(ch chan<- *prometheus.Desc) {
+    g.vec.Describe(ch)
 }
 
 // Collect implements Collector.
-func (v *GaugeVec) Collect(ch chan<- prometheus.Metric) {
-    v.gVec.Collect(ch)
+func (g *GaugeVec) Collect(ch chan<- prometheus.Metric) {
+    g.vec.Collect(ch)
 }
 
 // Reset deletes all metrics in this vector.
-func (m *GaugeVec) Reset() {
-    m.gVec.Reset()
+func (g *GaugeVec) Reset() {
+    g.vec.Reset()
 }
