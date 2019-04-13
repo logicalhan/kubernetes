@@ -345,8 +345,21 @@ func (s *Server) InstallDefaultHandlers() {
 		},
 		[]string{"blah"},
 	)
+
+	h := metrics2.NewHistogram(
+		metrics2.HistogramOpts{
+			Name:              "han_histogram",
+			Subsystem:         "my_sub",
+			Help:              "halp",
+			Buckets:   prometheus.DefBuckets,
+			DeprecatedVersion: metrics2.MustParseGeneric("1.15.0"),
+		},
+	)
+	kr.MustRegister(h)
 	kr.MustRegister(cv)
+
 	go wait.Forever(func() {
+		h.Observe(1.5)
 		cv.WithLabelValues("hanlabel").Inc()
 		cv.WithLabelValues("hanlabel1").Inc()
 	}, time.Second*10)

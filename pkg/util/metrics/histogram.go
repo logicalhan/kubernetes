@@ -28,6 +28,19 @@ type KubeHistogram struct {
     Version *Version
 }
 
+func (h KubeHistogram) Describe(ch chan<- *prometheus.Desc) {
+    h.PromHistogram.Describe(ch)
+}
+
+func (h KubeHistogram) Collect(ch chan<- prometheus.Metric) {
+    h.PromHistogram.Collect(ch)
+}
+
+func (h KubeHistogram) Observe(v float64) {
+    h.PromHistogram.Observe(v)
+}
+
+
 type HistogramVec struct {
     vec              *prometheus.HistogramVec
     DeprecatedVersion *Version

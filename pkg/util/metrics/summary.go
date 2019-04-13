@@ -37,6 +37,18 @@ type KubeSummary struct {
     Version *Version
 }
 
+func (h KubeSummary) Describe(ch chan<- *prometheus.Desc) {
+    h.PromSummary.Describe(ch)
+}
+
+func (h KubeSummary) Collect(ch chan<- prometheus.Metric) {
+    h.PromSummary.Collect(ch)
+}
+
+func (h KubeSummary) Observe(v float64) {
+    h.PromSummary.Observe(v)
+}
+
 type SummaryVec struct {
     vec              *prometheus.SummaryVec
     DeprecatedVersion *Version
