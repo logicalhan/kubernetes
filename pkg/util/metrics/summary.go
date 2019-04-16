@@ -33,24 +33,28 @@ func (c SummaryOpts) toPromSummaryOpts() prometheus.SummaryOpts {
 }
 
 type KubeSummary struct {
-    PromSummary prometheus.Summary
-    Version *Version
+    prometheus.Summary
+    deprecatedVersion *Version
+}
+
+func (h KubeSummary) GetDeprecatedVersion() *Version {
+    return h.deprecatedVersion
 }
 
 func (h KubeSummary) Describe(ch chan<- *prometheus.Desc) {
-    h.PromSummary.Describe(ch)
+    h.Summary.Describe(ch)
 }
 
 func (h KubeSummary) Collect(ch chan<- prometheus.Metric) {
-    h.PromSummary.Collect(ch)
+    h.Summary.Collect(ch)
 }
 
 func (h KubeSummary) Observe(v float64) {
-    h.PromSummary.Observe(v)
+    h.Summary.Observe(v)
 }
 
 type SummaryVec struct {
-    vec              *prometheus.SummaryVec
+    *prometheus.SummaryVec
     DeprecatedVersion *Version
 }
 
@@ -64,23 +68,26 @@ func NewSummaryVec(opts SummaryOpts, labels []string) *SummaryVec {
     return &SummaryVec{vec, opts.DeprecatedVersion}
 }
 
-func (h *SummaryVec) GetMetricWithLabelValues(lvs ...string) (prometheus.Observer, error) {
-    return h.vec.GetMetricWithLabelValues(lvs...)
+func (h *SummaryVec) GetMetricWithLabelValues(lvs ...string) (DeprecatableObserver, error) {
+    o, e := h.SummaryVec.GetMetricWithLabelValues(lvs...)
+    return DeprecatableObserver{o, h.DeprecatedVersion}, e
 }
 
-func (h *SummaryVec) GetMetricWith(labels prometheus.Labels) (prometheus.Observer, error) {
-    return h.vec.GetMetricWith(labels)
+func (h *SummaryVec) GetMetricWith(labels prometheus.Labels) (DeprecatableObserver, error) {
+    o, e := h.SummaryVec.GetMetricWith(labels)
+    return DeprecatableObserver{o, h.DeprecatedVersion}, e
 }
 
-func (h *SummaryVec) With(labels prometheus.Labels) prometheus.Observer {
-    return h.vec.With(labels)
+func (h *SummaryVec) With(labels prometheus.Labels) DeprecatableObserver {
+    return DeprecatableObserver{h.SummaryVec.With(labels), h.DeprecatedVersion}
 }
 
-func (h *SummaryVec) CurryWith(labels prometheus.Labels) (prometheus.ObserverVec, error) {
-    return h.vec.CurryWith(labels)
+func (h *SummaryVec) CurryWith(labels prometheus.Labels) (DeprecatableObserverVec, error) {
+    ov, e := h.SummaryVec.CurryWith(labels)
+    return DeprecatableObserverVec{ov, h.DeprecatedVersion}, e
 }
 
-func (h *SummaryVec) MustCurryWith(labels prometheus.Labels) prometheus.ObserverVec {
+func (h *SummaryVec) MustCurryWith(labels prometheus.Labels) DeprecatableObserverVec {
     vec, err := h.CurryWith(labels)
     if err != nil {
         panic(err)
@@ -91,15 +98,15 @@ func (h *SummaryVec) MustCurryWith(labels prometheus.Labels) prometheus.Observer
 // Describe implements Collector. It will send exactly one Desc to the provided
 // channel.
 func (h *SummaryVec) Describe(ch chan<- *prometheus.Desc) {
-    h.vec.Describe(ch)
+    h.SummaryVec.Describe(ch)
 }
 
 // Collect implements Collector.
 func (h *SummaryVec) Collect(ch chan<- prometheus.Metric) {
-    h.vec.Collect(ch)
+    h.SummaryVec.Collect(ch)
 }
 
 // Reset deletes all metrics in this vector.
 func (h *SummaryVec) Reset() {
-    h.vec.Reset()
+    h.SummaryVec.Reset()
 }

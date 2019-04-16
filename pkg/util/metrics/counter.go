@@ -2,6 +2,7 @@ package metrics
 
 import (
 	"github.com/prometheus/client_golang/prometheus"
+
 )
 
 type CounterOpts Opts
@@ -17,19 +18,46 @@ func (c CounterOpts) toPromCounterOpts() prometheus.CounterOpts {
 		ConstLabels: c.ConstLabels}
 }
 
-func NewCounter(opts CounterOpts) KubeMetric {
+type KubeCounter struct {
+	prometheus.Counter
+	originalOpts prometheus.CounterOpts
+	deprecatedVersion *Version
+}
+
+func (c *KubeCounter) GetDeprecatedVersion() *Version {
+	return c.deprecatedVersion
+}
+
+func (c *KubeCounter) Inc() {
+	c.Counter.Inc()
+}
+
+func (c *KubeCounter) Add(v float64) {
+	c.Counter.Add(v)
+}
+
+func (c *KubeCounter) Describe(ch chan<- *prometheus.Desc) {
+	c.Counter.Describe(ch)
+}
+
+func (c *KubeCounter) Collect(m chan<- prometheus.Metric) {
+	c.Counter.Collect(m)
+}
+
+func NewCounter(opts CounterOpts) *KubeCounter {
 	c := prometheus.NewCounter(opts.toPromCounterOpts())
-	return KubeMetric{c, opts.DeprecatedVersion}
+	return &KubeCounter{c, opts.toPromCounterOpts(), opts.DeprecatedVersion}
 }
 
 type CounterVec struct {
-	cVec              *prometheus.CounterVec
+	*prometheus.CounterVec
+	originalOpts prometheus.CounterOpts
 	DeprecatedVersion *Version
 }
 
 func NewCounterVec(opts CounterOpts, labels []string) *CounterVec {
-	cVec := prometheus.NewCounterVec(opts.toPromCounterOpts(), labels)
-	return &CounterVec{cVec: cVec, DeprecatedVersion: opts.DeprecatedVersion}
+	vec := prometheus.NewCounterVec(opts.toPromCounterOpts(), labels)
+	return &CounterVec{CounterVec: vec, originalOpts: opts.toPromCounterOpts(), DeprecatedVersion: opts.DeprecatedVersion}
 }
 
 // todo:        There is a problem with the underlying method call here. Prometheus behavior
@@ -49,28 +77,26 @@ func (v *CounterVec) GetMetricWithLabelValues(lvs ...string) (prometheus.Counter
 				return noOptCounter, nil
 			}
 	*/
-	return v.cVec.GetMetricWithLabelValues(lvs...)
+	return v.CounterVec.GetMetricWithLabelValues(lvs...)
 }
 
-// todo: let's not return a promoetheus counter here
-func (v *CounterVec) GetMetricWith(labels prometheus.Labels) (prometheus.Counter, error) {
-	return v.cVec.GetMetricWith(labels)
+func (v *CounterVec) GetMetricWith(labels prometheus.Labels) (*KubeCounter, error) {
+	c, e := v.CounterVec.GetMetricWith(labels)
+	return &KubeCounter{c, v.originalOpts, v.DeprecatedVersion}, e
 }
 
-// todo: let's not return a promoetheus counter here
-func (v *CounterVec) WithLabelValues(lvs ...string) prometheus.Counter {
-	return v.cVec.WithLabelValues(lvs...)
+func (v *CounterVec) WithLabelValues(lvs ...string) *KubeCounter {
+	return &KubeCounter{v.CounterVec.WithLabelValues(lvs...), v.originalOpts, v.DeprecatedVersion}
 }
 
-// todo: let's not return a promoetheus counter here
-func (v *CounterVec) With(labels prometheus.Labels) prometheus.Counter {
-	return v.cVec.With(labels)
+func (v *CounterVec) With(labels prometheus.Labels) *KubeCounter {
+	return &KubeCounter{v.CounterVec.With(labels), v.originalOpts, v.DeprecatedVersion}
 }
 
 func (v *CounterVec) CurryWith(labels prometheus.Labels) (*CounterVec, error) {
-	vec, err := v.cVec.CurryWith(labels)
+	vec, err := v.CounterVec.CurryWith(labels)
 	if vec != nil {
-		return &CounterVec{vec, v.DeprecatedVersion}, err
+		return &CounterVec{vec, v.originalOpts, v.DeprecatedVersion}, err
 	}
 	return nil, err
 }
@@ -83,18 +109,23 @@ func (v *CounterVec) MustCurryWith(labels prometheus.Labels) *CounterVec {
 	return vec
 }
 
+// Reset deletes all metrics in this vector.
+func (m *CounterVec) GetDeprecatedVersion() *Version {
+	return m.DeprecatedVersion
+}
+
 // Describe implements Collector. It will send exactly one Desc to the provided
 // channel.
 func (v *CounterVec) Describe(ch chan<- *prometheus.Desc) {
-	v.cVec.Describe(ch)
+	v.CounterVec.Describe(ch)
 }
 
 // Collect implements Collector.
 func (v *CounterVec) Collect(ch chan<- prometheus.Metric) {
-	v.cVec.Collect(ch)
+	v.CounterVec.Collect(ch)
 }
 
 // Reset deletes all metrics in this vector.
 func (m *CounterVec) Reset() {
-	m.cVec.Reset()
+	m.CounterVec.Reset()
 }

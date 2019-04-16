@@ -1,14 +1,14 @@
 package metrics
 
 import (
+	"fmt"
 	"github.com/prometheus/client_golang/prometheus"
 	dto "github.com/prometheus/client_model/go"
+	"k8s.io/klog"
 )
 
 var (
-	defaultRegistry                         = NewKubeRegistry()
-	DefaultRegisterer prometheus.Registerer = defaultRegistry
-	DefaultGatherer   prometheus.Gatherer   = defaultRegistry
+	DefaultGlobalRegistry                         = NewKubeRegistry()
 )
 
 type PromRegistry interface {
@@ -21,15 +21,44 @@ type KubeRegistry struct {
 	version  *Version
 }
 
-func (kr *KubeRegistry) Register(collector prometheus.Collector) error {
+func (kr *KubeRegistry) Register(collector DeprecatableCollector) error {
 	return kr.registry.Register(collector)
 }
 
-func (kr *KubeRegistry) MustRegister(cs ...prometheus.Collector) {
-	kr.registry.MustRegister(cs...)
+func (kr *KubeRegistry) MustRegister(cs ...DeprecatableCollector) {
+	metrics := make([]prometheus.Collector, 0)
+	for _, c := range cs {
+
+		if c.GetDeprecatedVersion() != nil && c.GetDeprecatedVersion().compareInternal(kr.version) < 0 {
+			klog.Warningf("This metric has been deprecated for more than one release, hiding.")
+			continue
+		} else if c.GetDeprecatedVersion() != nil && c.GetDeprecatedVersion().compareInternal(kr.version) == 0 {
+			switch c.(type) {
+			case *KubeCounter:
+				originalOpts := c.(*KubeCounter).originalOpts
+				newOpts := CounterOpts{
+					Namespace: originalOpts.Namespace,
+					Name: originalOpts.Name,
+					Subsystem: originalOpts.Subsystem,
+					ConstLabels: originalOpts.ConstLabels,
+					Help: fmt.Sprintf("(Deprecated since %v) %v", c.GetDeprecatedVersion(), originalOpts.Help),
+					DeprecatedVersion: c.GetDeprecatedVersion(),
+				}
+				newCounter := NewCounter(newOpts)
+				metrics = append(metrics, newCounter)
+
+			default: // TODO: handle other cases
+				metrics = append(metrics, c)
+			}
+			continue
+		} else {
+			metrics = append(metrics, c)
+		}
+	}
+	kr.registry.MustRegister(metrics...)
 }
 
-func (kr *KubeRegistry) Unregister(collector prometheus.Collector) bool {
+func (kr *KubeRegistry) Unregister(collector DeprecatableCollector) bool {
 	return kr.registry.Unregister(collector)
 }
 

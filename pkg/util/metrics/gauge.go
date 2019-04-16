@@ -19,8 +19,8 @@ func (c GaugeOpts) toPromGaugeOpts() prometheus.GaugeOpts {
 }
 
 type KubeGauge struct {
-    PromGauge prometheus.Gauge
-    Version *Version
+    prometheus.Gauge
+    deprecatedVersion *Version
 }
 
 type GaugeVec struct {
@@ -28,9 +28,33 @@ type GaugeVec struct {
     DeprecatedVersion *Version
 }
 
-func NewGauge(opts GaugeOpts) KubeGauge {
+func NewGauge(opts GaugeOpts) *KubeGauge {
     g := prometheus.NewGauge(opts.toPromGaugeOpts())
-    return KubeGauge{g, opts.DeprecatedVersion}
+    return &KubeGauge{g, opts.DeprecatedVersion}
+}
+
+func (g *KubeGauge) GetDeprecatedVersion() *Version {
+    return g.deprecatedVersion
+}
+
+func (g *KubeGauge) Inc() {
+    g.Gauge.Inc()
+}
+
+func (g *KubeGauge) Dec()            {
+    g.Gauge.Dec()
+}
+
+func (g *KubeGauge) Set(v float64)     {
+    g.Gauge.Set(v)
+}
+
+func (g *KubeGauge) Sub(v float64)     {
+    g.Gauge.Sub(v)
+}
+
+func (g *KubeGauge) SetToCurrentTime(v float64)     {
+    g.Gauge.SetToCurrentTime()
 }
 
 func NewGaugeVec(opts GaugeOpts, labels []string) *GaugeVec {
