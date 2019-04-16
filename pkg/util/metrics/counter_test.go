@@ -2,15 +2,13 @@ package metrics
 
 import "testing"
 
-
-
 func TestCounter(t *testing.T) {
 	var tests = []struct {
 		desc string
 		CounterOpts
-		registryVersion *Version
+		registryVersion     *Version
 		expectedMetricCount int
-		expectedHelp string
+		expectedHelp        string
 	}{
 		{
 			desc: "Test non deprecated",
@@ -20,37 +18,36 @@ func TestCounter(t *testing.T) {
 				Subsystem: "subsystem",
 				Help:      "counter help",
 			},
-			registryVersion: MustParseGeneric("1.15.0"),
+			registryVersion:     MustParseGeneric("1.15.0"),
 			expectedMetricCount: 1,
-			expectedHelp: "counter help",
+			expectedHelp:        "counter help",
 		},
 		{
 			desc: "Test deprecated",
 			CounterOpts: CounterOpts{
-				Namespace: "namespace",
-				Name:      "metric_test_name",
-				Subsystem: "subsystem",
-				Help:      "counter help",
+				Namespace:         "namespace",
+				Name:              "metric_test_name",
+				Subsystem:         "subsystem",
+				Help:              "counter help",
 				DeprecatedVersion: MustParseGeneric("1.15.0"),
 			},
-			registryVersion: MustParseGeneric("1.15.0"),
+			registryVersion:     MustParseGeneric("1.15.0"),
 			expectedMetricCount: 1,
-			expectedHelp: "(Deprecated since 1.15.0) counter help",
+			expectedHelp:        "(Deprecated since 1.15.0) counter help",
 		},
 		{
 			desc: "Test hidden",
 			CounterOpts: CounterOpts{
-				Namespace: "namespace",
-				Name:      "metric_test_name",
-				Subsystem: "subsystem",
-				Help:      "counter help",
+				Namespace:         "namespace",
+				Name:              "metric_test_name",
+				Subsystem:         "subsystem",
+				Help:              "counter help",
 				DeprecatedVersion: MustParseGeneric("1.14.0"),
 			},
-			registryVersion: MustParseGeneric("1.15.0"),
+			registryVersion:     MustParseGeneric("1.15.0"),
 			expectedMetricCount: 0,
-			expectedHelp: "counter help",
+			expectedHelp:        "counter help",
 		},
-
 	}
 
 	for _, test := range tests {
@@ -87,7 +84,6 @@ func TestCounter(t *testing.T) {
 					t.Logf("%v\n", m.GetCounter().GetValue())
 				}
 			}
-
 		})
 	}
 
