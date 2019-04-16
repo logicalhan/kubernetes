@@ -1,6 +1,7 @@
 package metrics
 
 import (
+    "fmt"
     "time"
     "github.com/prometheus/client_golang/prometheus"
 )
@@ -32,40 +33,68 @@ func (c SummaryOpts) toPromSummaryOpts() prometheus.SummaryOpts {
     }
 }
 
+func getDeprecatedSummaryOpts(originalOpts SummaryOpts) SummaryOpts {
+    return SummaryOpts{
+        Namespace: originalOpts.Namespace,
+        Name: originalOpts.Name,
+        Subsystem: originalOpts.Subsystem,
+        ConstLabels: originalOpts.ConstLabels,
+        Help: fmt.Sprintf("(Deprecated since %v) %v", originalOpts.DeprecatedVersion, originalOpts.Help),
+        DeprecatedVersion: originalOpts.DeprecatedVersion,
+        Objectives: originalOpts.Objectives,
+        MaxAge: originalOpts.MaxAge,
+        AgeBuckets: originalOpts.AgeBuckets,
+        BufCap: originalOpts.BufCap,
+    }
+}
+
 type KubeSummary struct {
     prometheus.Summary
-    deprecatedVersion *Version
+    SummaryOpts
+    isDeprecated bool
 }
 
-func (h KubeSummary) GetDeprecatedVersion() *Version {
-    return h.deprecatedVersion
+func (h *KubeSummary) MarkDeprecated() {
+    h.isDeprecated = true
+}
+func (h *KubeSummary) GetDeprecatedMetric() DeprecatableCollector {
+    return NewSummary(getDeprecatedSummaryOpts(h.SummaryOpts))
 }
 
-func (h KubeSummary) Describe(ch chan<- *prometheus.Desc) {
+func (h *KubeSummary) GetDeprecatedVersion() *Version {
+    return h.SummaryOpts.DeprecatedVersion
+}
+
+func (h *KubeSummary) Describe(ch chan<- *prometheus.Desc) {
     h.Summary.Describe(ch)
 }
 
-func (h KubeSummary) Collect(ch chan<- prometheus.Metric) {
+func (h *KubeSummary) Collect(ch chan<- prometheus.Metric) {
     h.Summary.Collect(ch)
 }
 
-func (h KubeSummary) Observe(v float64) {
+func (h *KubeSummary) Observe(v float64) {
     h.Summary.Observe(v)
 }
 
 type SummaryVec struct {
     *prometheus.SummaryVec
-    DeprecatedVersion *Version
+    SummaryOpts
+    isDeprecated bool
 }
 
-func NewSummary(opts SummaryOpts) KubeSummary {
+func NewSummary(opts SummaryOpts) *KubeSummary {
     s := prometheus.NewSummary(opts.toPromSummaryOpts())
-    return KubeSummary{s, opts.DeprecatedVersion}
+    return &KubeSummary{Summary: s, SummaryOpts: opts}
 }
 
 func NewSummaryVec(opts SummaryOpts, labels []string) *SummaryVec {
     vec := prometheus.NewSummaryVec(opts.toPromSummaryOpts(), labels)
-    return &SummaryVec{vec, opts.DeprecatedVersion}
+    return &SummaryVec{SummaryVec: vec, SummaryOpts: opts}
+}
+
+func (h *SummaryVec) MarkDeprecated() {
+    h.isDeprecated = true
 }
 
 func (h *SummaryVec) GetMetricWithLabelValues(lvs ...string) (DeprecatableObserver, error) {

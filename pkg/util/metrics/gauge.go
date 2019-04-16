@@ -1,6 +1,7 @@
 package metrics
 
 import (
+    "fmt"
     "github.com/prometheus/client_golang/prometheus"
 )
 
@@ -20,21 +21,43 @@ func (c GaugeOpts) toPromGaugeOpts() prometheus.GaugeOpts {
 
 type KubeGauge struct {
     prometheus.Gauge
-    deprecatedVersion *Version
+    GaugeOpts
+    isDeprecated bool
 }
 
 type GaugeVec struct {
     vec              *prometheus.GaugeVec
-    DeprecatedVersion *Version
+    GaugeOpts
+    originalLabels []string
+    isDeprecated bool
 }
 
 func NewGauge(opts GaugeOpts) *KubeGauge {
     g := prometheus.NewGauge(opts.toPromGaugeOpts())
-    return &KubeGauge{g, opts.DeprecatedVersion}
+    return &KubeGauge{Gauge: g, GaugeOpts: opts}
 }
 
 func (g *KubeGauge) GetDeprecatedVersion() *Version {
-    return g.deprecatedVersion
+    return g.GaugeOpts.DeprecatedVersion
+}
+
+func getDeprecatedGaugeOpts(opts GaugeOpts) GaugeOpts {
+    return GaugeOpts{
+        Namespace:         opts.Namespace,
+        Name:              opts.Name,
+        Subsystem:         opts.Subsystem,
+        ConstLabels:       opts.ConstLabels,
+        Help:              fmt.Sprintf("(Deprecated since %v) %v", opts.DeprecatedVersion, opts.Help),
+        DeprecatedVersion: opts.DeprecatedVersion,
+    }
+}
+
+func (g *KubeGauge) GetDeprecatedMetric() DeprecatableCollector {
+    return NewGauge(getDeprecatedGaugeOpts(g.GaugeOpts))
+}
+
+func (g *KubeGauge) MarkDeprecated() {
+    g.isDeprecated = true
 }
 
 func (g *KubeGauge) Inc() {
@@ -59,7 +82,20 @@ func (g *KubeGauge) SetToCurrentTime(v float64)     {
 
 func NewGaugeVec(opts GaugeOpts, labels []string) *GaugeVec {
     gVec := prometheus.NewGaugeVec(opts.toPromGaugeOpts(), labels)
-    return &GaugeVec{gVec, opts.DeprecatedVersion}
+    return &GaugeVec{vec: gVec, GaugeOpts: opts, originalLabels: labels}
+}
+
+func (g *GaugeVec) MarkDeprecated() {
+    g.isDeprecated = true
+}
+
+func (g *GaugeVec) GetDeprecatedMetric() DeprecatableCollector {
+    newOpts := getDeprecatedGaugeOpts(g.GaugeOpts)
+    return NewGaugeVec(newOpts, g.originalLabels)
+}
+
+func (g *GaugeVec) GetDeprecatedVersion() *Version {
+    return g.GaugeOpts.DeprecatedVersion
 }
 
 func (g *GaugeVec) GetMetricWithLabelValues(lvs ...string) (prometheus.Gauge, error) {
@@ -77,7 +113,7 @@ func (g *GaugeVec) With(labels prometheus.Labels) prometheus.Gauge {
 func (g *GaugeVec) CurryWith(labels prometheus.Labels) (*GaugeVec, error) {
     vec, err := g.vec.CurryWith(labels)
     if vec != nil {
-        return &GaugeVec{vec, g.DeprecatedVersion}, err
+        return &GaugeVec{vec: vec, GaugeOpts: g.GaugeOpts, originalLabels: g.originalLabels}, err
     }
     return nil, err
 }

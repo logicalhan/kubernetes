@@ -1,6 +1,7 @@
 package metrics
 
 import (
+    "fmt"
     "github.com/prometheus/client_golang/prometheus"
 )
 
@@ -26,59 +27,94 @@ func (c HistogramOpts) toPromHistogramOpts() prometheus.HistogramOpts {
     }
 }
 
+func getDeprecatedHistogramOpts(originalOpts HistogramOpts) HistogramOpts {
+    return HistogramOpts{
+        Namespace: originalOpts.Namespace,
+        Name: originalOpts.Name,
+        Subsystem: originalOpts.Subsystem,
+        ConstLabels: originalOpts.ConstLabels,
+        Buckets:        originalOpts.Buckets,
+        Help: fmt.Sprintf("(Deprecated since %v) %v", originalOpts.DeprecatedVersion, originalOpts.Help),
+        DeprecatedVersion: originalOpts.DeprecatedVersion,
+    }
+}
 type KubeHistogram struct {
     prometheus.Histogram
-    deprecatedVersion *Version
+    HistogramOpts
+    isDeprecated bool
 }
 
-func (h KubeHistogram) GetDeprecatedVersion() *Version {
-    return h.deprecatedVersion
+func (h *KubeHistogram) MarkDeprecated() {
+    h.isDeprecated = true
 }
 
-func (h KubeHistogram) Describe(ch chan<- *prometheus.Desc) {
+func (h *KubeHistogram) GetDeprecatedVersion() *Version {
+    return h.HistogramOpts.DeprecatedVersion
+}
+
+func (h *KubeHistogram) GetDeprecatedMetric() DeprecatableCollector {
+    return NewHistogram(getDeprecatedHistogramOpts(h.HistogramOpts))
+}
+
+
+func (h *KubeHistogram) Describe(ch chan<- *prometheus.Desc) {
     h.Histogram.Describe(ch)
 }
 
-func (h KubeHistogram) Collect(ch chan<- prometheus.Metric) {
+func (h *KubeHistogram) Collect(ch chan<- prometheus.Metric) {
     h.Histogram.Collect(ch)
 }
 
-func (h KubeHistogram) Observe(v float64) {
+func (h *KubeHistogram) Observe(v float64) {
     h.Histogram.Observe(v)
 }
 
 type HistogramVec struct {
     *prometheus.HistogramVec
-    DeprecatedVersion *Version
+    HistogramOpts
+    originalLabels []string
+    isDeprecated bool
 }
 
-func NewHistogram(opts HistogramOpts) KubeHistogram {
+func NewHistogram(opts HistogramOpts) *KubeHistogram {
     h := prometheus.NewHistogram(opts.toPromHistogramOpts())
-    return KubeHistogram{h, opts.DeprecatedVersion}
+    return &KubeHistogram{Histogram: h, HistogramOpts: opts}
 }
 
 func NewHistogramVec(opts HistogramOpts, labels []string) *HistogramVec {
     hVec := prometheus.NewHistogramVec(opts.toPromHistogramOpts(), labels)
-    return &HistogramVec{hVec, opts.DeprecatedVersion}
+    return &HistogramVec{HistogramVec: hVec, HistogramOpts: opts, originalLabels: labels}
 }
+func (h *HistogramVec) MarkDeprecated() {
+    h.isDeprecated = true
+}
+func (h *HistogramVec) GetDeprecatedMetric() DeprecatableCollector {
+    newOpts := getDeprecatedHistogramOpts(h.HistogramOpts)
+    return NewHistogramVec(newOpts, h.originalLabels)
+}
+
+func (h *HistogramVec) GetDeprecatedVersion() *Version {
+    return h.HistogramOpts.DeprecatedVersion
+}
+
 
 func (h *HistogramVec) GetMetricWithLabelValues(lvs ...string) (DeprecatableObserver, error) {
     o, e := h.HistogramVec.GetMetricWithLabelValues(lvs...)
-    return DeprecatableObserver{o, h.DeprecatedVersion}, e
+    return DeprecatableObserver{o, h.HistogramOpts.DeprecatedVersion}, e
 }
 
 func (h *HistogramVec) GetMetricWith(labels prometheus.Labels) (DeprecatableObserver, error) {
     o, e := h.HistogramVec.GetMetricWith(labels)
-    return DeprecatableObserver{o, h.DeprecatedVersion}, e
+    return DeprecatableObserver{o, h.HistogramOpts.DeprecatedVersion}, e
 }
 
 func (h *HistogramVec) With(labels prometheus.Labels) DeprecatableObserver {
-    return DeprecatableObserver{h.HistogramVec.With(labels), h.DeprecatedVersion}
+    return DeprecatableObserver{h.HistogramVec.With(labels), h.HistogramOpts.DeprecatedVersion}
 }
 
 func (h *HistogramVec) CurryWith(labels prometheus.Labels) (DeprecatableObserverVec, error) {
     ov, e := h.HistogramVec.CurryWith(labels)
-    return DeprecatableObserverVec{ov, h.DeprecatedVersion}, e
+    return DeprecatableObserverVec{ov, h.HistogramOpts.DeprecatedVersion}, e
 }
 
 func (h *HistogramVec) MustCurryWith(labels prometheus.Labels) DeprecatableObserverVec {
