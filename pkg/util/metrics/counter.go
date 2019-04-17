@@ -127,22 +127,21 @@ func (v *CounterVec) GetMetricWith(labels prometheus.Labels) (prometheus.Counter
 	if !v.IsRegistered() {
 		return noop, nil
 	}
-	c, e := v.CounterVec.GetMetricWith(labels)
-	return &KubeCounter{Counter: c, CounterOpts: v.CounterOpts}, e
+	return v.CounterVec.GetMetricWith(labels)
 }
 
 func (v *CounterVec) WithLabelValues(lvs ...string) prometheus.Counter {
 	if !v.IsRegistered() {
 		return noop
 	}
-	return &KubeCounter{Counter: v.CounterVec.WithLabelValues(lvs...), CounterOpts: v.CounterOpts}
+	return v.CounterVec.WithLabelValues(lvs...)
 }
 
 func (v *CounterVec) With(labels prometheus.Labels) prometheus.Counter {
 	if !v.IsRegistered() {
 		return noop
 	}
-	return &KubeCounter{Counter: v.CounterVec.With(labels), CounterOpts: v.CounterOpts}
+	return v.CounterVec.With(labels)
 }
 
 func (v *CounterVec) CurryWith(labels prometheus.Labels) (*prometheus.CounterVec, error) {
