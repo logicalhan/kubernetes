@@ -1,26 +1,24 @@
 package metrics
 
 import (
-	"github.com/prometheus/client_golang/prometheus"
 	"testing"
 )
 
-func TestHistogram(t *testing.T) {
+func TestSummary(t *testing.T) {
 	var tests = []struct {
 		desc string
-		HistogramOpts
+		SummaryOpts
 		registryVersion     *Version
 		expectedMetricCount int
 		expectedHelp        string
 	}{
 		{
 			desc: "Test non deprecated",
-			HistogramOpts: HistogramOpts{
+			SummaryOpts: SummaryOpts{
 				Namespace: "namespace",
 				Name:      "metric_test_name",
 				Subsystem: "subsystem",
 				Help:      "counter help",
-				Buckets:   prometheus.DefBuckets,
 			},
 			registryVersion:     MustParseGeneric("1.15.0"),
 			expectedMetricCount: 1,
@@ -28,13 +26,12 @@ func TestHistogram(t *testing.T) {
 		},
 		{
 			desc: "Test deprecated",
-			HistogramOpts: HistogramOpts{
+			SummaryOpts: SummaryOpts{
 				Namespace:         "namespace",
 				Name:              "metric_test_name",
 				Subsystem:         "subsystem",
 				Help:              "counter help",
 				DeprecatedVersion: MustParseGeneric("1.15.0"),
-				Buckets:           prometheus.DefBuckets,
 			},
 			registryVersion:     MustParseGeneric("1.15.0"),
 			expectedMetricCount: 1,
@@ -42,13 +39,12 @@ func TestHistogram(t *testing.T) {
 		},
 		{
 			desc: "Test hidden",
-			HistogramOpts: HistogramOpts{
+			SummaryOpts: SummaryOpts{
 				Namespace:         "namespace",
 				Name:              "metric_test_name",
 				Subsystem:         "subsystem",
 				Help:              "counter help",
 				DeprecatedVersion: MustParseGeneric("1.14.0"),
-				Buckets:           prometheus.DefBuckets,
 			},
 			registryVersion:     MustParseGeneric("1.15.0"),
 			expectedMetricCount: 0,
@@ -59,7 +55,7 @@ func TestHistogram(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.desc, func(t *testing.T) {
 			registry := NewKubeRegistry(test.registryVersion)
-			c := NewHistogram(test.HistogramOpts)
+			c := NewSummary(test.SummaryOpts)
 			registry.MustRegister(c)
 
 			ms, err := registry.Gather()
@@ -87,7 +83,7 @@ func TestHistogram(t *testing.T) {
 			}
 			for _, mf := range ms {
 				for _, m := range mf.GetMetric() {
-					if int(m.GetHistogram().GetSampleCount()) != expected {
+					if int(m.GetSummary().GetSampleCount()) != expected {
 						t.Errorf("Got %v, want %v as the sample count", m.GetHistogram().GetSampleCount(), expected)
 					}
 				}
@@ -96,10 +92,10 @@ func TestHistogram(t *testing.T) {
 	}
 }
 
-func TestHistogramVec(t *testing.T) {
+func TestSummaryVec(t *testing.T) {
 	var tests = []struct {
 		desc string
-		HistogramOpts
+		SummaryOpts
 		labels              []string
 		registryVersion     *Version
 		expectedMetricCount int
@@ -107,12 +103,11 @@ func TestHistogramVec(t *testing.T) {
 	}{
 		{
 			desc: "Test non deprecated",
-			HistogramOpts: HistogramOpts{
+			SummaryOpts: SummaryOpts{
 				Namespace: "namespace",
 				Name:      "metric_test_name",
 				Subsystem: "subsystem",
 				Help:      "counter help",
-				Buckets:   prometheus.DefBuckets,
 			},
 			labels:              []string{"label_a", "label_b"},
 			registryVersion:     MustParseGeneric("1.15.0"),
@@ -121,13 +116,12 @@ func TestHistogramVec(t *testing.T) {
 		},
 		{
 			desc: "Test deprecated",
-			HistogramOpts: HistogramOpts{
+			SummaryOpts: SummaryOpts{
 				Namespace:         "namespace",
 				Name:              "metric_test_name",
 				Subsystem:         "subsystem",
 				Help:              "counter help",
 				DeprecatedVersion: MustParseGeneric("1.15.0"),
-				Buckets:   prometheus.DefBuckets,
 			},
 			labels:              []string{"label_a", "label_b"},
 			registryVersion:     MustParseGeneric("1.15.0"),
@@ -136,13 +130,12 @@ func TestHistogramVec(t *testing.T) {
 		},
 		{
 			desc: "Test hidden",
-			HistogramOpts: HistogramOpts{
+			SummaryOpts: SummaryOpts{
 				Namespace:         "namespace",
 				Name:              "metric_test_name",
 				Subsystem:         "subsystem",
 				Help:              "counter help",
 				DeprecatedVersion: MustParseGeneric("1.14.0"),
-				Buckets:   prometheus.DefBuckets,
 			},
 			labels:              []string{"label_a", "label_b"},
 			registryVersion:     MustParseGeneric("1.15.0"),
@@ -154,7 +147,7 @@ func TestHistogramVec(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.desc, func(t *testing.T) {
 			registry := NewKubeRegistry(test.registryVersion)
-			c := NewHistogramVec(test.HistogramOpts, test.labels)
+			c := NewSummaryVec(test.SummaryOpts, test.labels)
 			registry.MustRegister(c)
 			c.WithLabelValues("1", "2").Observe(1.0)
 			ms, err := registry.Gather()
@@ -183,10 +176,10 @@ func TestHistogramVec(t *testing.T) {
 					t.Errorf("Got %v metrics, wanted 2 as the count", len(mf.GetMetric()))
 				}
 				for _, m := range mf.GetMetric() {
-					if m.GetHistogram().GetSampleCount() != 1 {
+					if m.GetSummary().GetSampleCount() != 1 {
 						t.Errorf(
-							"Got %v metrics, expected histogram sample count to equal 1",
-							m.GetHistogram().GetSampleCount())
+							"Got %v metrics, wanted 2 as the summary sample count",
+							m.GetSummary().GetSampleCount())
 					}
 				}
 			}
