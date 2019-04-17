@@ -21,8 +21,6 @@ import (
 	"crypto/tls"
 	"fmt"
 	"io"
-	"k8s.io/apimachinery/pkg/util/wait"
-	metrics2 "k8s.io/kubernetes/pkg/util/metrics"
 	"net"
 	"net/http"
 	"net/http/pprof"
@@ -325,91 +323,6 @@ func (s *Server) InstallDefaultHandlers() {
 	p.MustRegister(prober.ProberResults)
 	s.restfulCont.Handle(proberMetricsPath,
 		promhttp.HandlerFor(p, promhttp.HandlerOpts{ErrorHandling: promhttp.ContinueOnError}),
-	)
-
-	kr := metrics2.NewKubeRegistry()
-
-	g := metrics2.NewGauge(metrics2.GaugeOpts{
-		Name: "han_gauge",
-		Subsystem: "han_sub",
-		Help: "This is my gauge",
-	})
-
-
-	c := metrics2.NewCounter(metrics2.CounterOpts{
-		Name:              "han_counter",
-		Subsystem:         "my_sub",
-		Help:              "This should be hidden",
-		DeprecatedVersion: metrics2.MustParseGeneric("1.14.0"),
-	})
-
-	c2 := metrics2.NewCounter(metrics2.CounterOpts{
-		Name:              "han_counter_2",
-		Subsystem:         "my_sub",
-		Help:              "This should have deprecated appended",
-		DeprecatedVersion: metrics2.MustParseGeneric("1.15.0"),
-	})
-
-	cv := metrics2.NewCounterVec(
-		metrics2.CounterOpts{
-			Name:              "han_counter_with_labels",
-			Subsystem:         "my_sub",
-			Help:              "My counter with labels",
-			DeprecatedVersion: metrics2.MustParseGeneric("1.15.0"),
-		},
-		[]string{"blah"},
-	)
-
-	h := metrics2.NewHistogram(
-		metrics2.HistogramOpts{
-			Name:              "han_histogram",
-			Subsystem:         "my_sub",
-			Help:              "halp",
-			Buckets:   prometheus.DefBuckets,
-			DeprecatedVersion: metrics2.MustParseGeneric("1.15.0"),
-		},
-	)
-
-	summary := metrics2.NewSummary(
-		metrics2.SummaryOpts{
-			Name:              "han_summary",
-			Subsystem:         "my_sub",
-			Help:              "halp",
-			DeprecatedVersion: metrics2.MustParseGeneric("1.15.0"),
-		},
-	)
-
-	kr.MustRegister(h)
-	kr.MustRegister(c)
-	kr.MustRegister(cv)
-	kr.MustRegister(g)
-	kr.MustRegister(summary)
-	kr.MustRegister(c2)
-
-	counter := 0
-	go wait.Forever(func() {
-		counter += 1
-		if counter % 2 == 0 {
-			c2.Inc()
-			h.Observe(1.5)
-			summary.Observe(1.5)
-			g.Inc()
-			g.Inc()
-		} else if counter % 3 == 0 {
-			g.Dec()
-			g.Dec()
-			g.Dec()
-		}
-		summary.Observe(0.01)
-		h.Observe(0.01)
-		g.Inc()
-
-		cv.WithLabelValues("hanlabel").Inc()
-		cv.WithLabelValues("hanlabel1").Inc()
-	}, time.Second*10)
-
-	s.restfulCont.Handle("/metrics/han",
-		promhttp.HandlerFor(kr, promhttp.HandlerOpts{ErrorHandling: promhttp.ContinueOnError}),
 	)
 
 	ws = new(restful.WebService)

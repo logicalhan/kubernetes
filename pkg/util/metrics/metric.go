@@ -7,6 +7,13 @@ import (
 	dto "github.com/prometheus/client_model/go"
 )
 
+type Deprecated bool
+
+const (
+	IsDeprecated Deprecated = true
+	NotDeprecated Deprecated = false
+)
+
 /**
  * This extends the prometheus.Collector interface so
  * that we can add additional functionality on top
@@ -21,7 +28,7 @@ type KubeCollector interface {
 }
 
 type Registerable interface {
-	MarkRegistered(bool)
+	InitializeMetric(Deprecated)
 	IsRegistered() bool
 }
 
@@ -40,7 +47,9 @@ func (r *registerable) IsRegistered() bool {
 	return r.isRegistered
 }
 
-func (r *registerable) MarkRegistered(isDeprecated bool) {
+// Defer initialization of metric until we know if we actually need to
+// register the thing.
+func (r *registerable) InitializeMetric(isDeprecated Deprecated) {
 	r.registerOnce.Do(func() {
 		r.isRegistered = true
 		if isDeprecated {

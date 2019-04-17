@@ -7,8 +7,6 @@ import (
 
 type CounterOpts Opts
 
-
-
 // convenience function to allow easy transformation to the prometheus
 // counterpart. This will do more once we have a proper label abstraction
 func (c CounterOpts) toPromCounterOpts() prometheus.CounterOpts {
@@ -20,24 +18,46 @@ func (c CounterOpts) toPromCounterOpts() prometheus.CounterOpts {
 		ConstLabels: c.ConstLabels}
 }
 
+// This is our wrapper function for prometheus counters
+// we store the options the metric was defined with in order
+// to defer initialization until actual metric registration.
 type KubeCounter struct {
 	prometheus.Counter
 	CounterOpts
 	registerable
 }
 
-func getDeprecatedCounterOpts(originalOpts CounterOpts) CounterOpts {
-	return CounterOpts{
-		Namespace:         originalOpts.Namespace,
-		Name:              originalOpts.Name,
-		Subsystem:         originalOpts.Subsystem,
-		ConstLabels:       originalOpts.ConstLabels,
-		Help:              fmt.Sprintf("(Deprecated since %v) %v", originalOpts.DeprecatedVersion, originalOpts.Help),
-		DeprecatedVersion: originalOpts.DeprecatedVersion,
+func NewCounter(opts CounterOpts) *KubeCounter {
+	kc := &KubeCounter{
+		Counter:      noop,
+		CounterOpts:  opts,
+		registerable: registerable{},
 	}
+	// store a reference to ourselves so that we can defer registration
+	kc.init(kc)
+	return kc
+}
+
+type CounterVec struct {
+	*prometheus.CounterVec
+	CounterOpts
+	registerable
+	originalLabels       []string
+}
+
+func NewCounterVec(opts CounterOpts, labels []string) *CounterVec {
+	cv := &CounterVec{
+		CounterVec:     nil,
+		CounterOpts:    opts,
+		originalLabels: labels,
+		registerable:   registerable{},
+	}
+	cv.init(cv)
+	return cv
 }
 
 
+// functions for KubeCounter
 func (c *KubeCounter) GetDeprecatedVersion() *Version {
 	return c.CounterOpts.DeprecatedVersion
 }
@@ -66,38 +86,10 @@ func (c *KubeCounter) Collect(m chan<- prometheus.Metric) {
 	c.Counter.Collect(m)
 }
 
-func (c *KubeCounter) MarkDeprecated() {
 
-}
-
-func NewCounter(opts CounterOpts) *KubeCounter {
-	kc := &KubeCounter{
-		Counter: noop,
-		CounterOpts: opts,
-		registerable: registerable{},
-	}
-	kc.init(kc)
-	return kc
-}
-
-
-type CounterVec struct {
-	*prometheus.CounterVec
-	CounterOpts
-	registerable
-	originalLabels       []string
-	deprecatedCounterVec *prometheus.CounterVec
-}
-
-func NewCounterVec(opts CounterOpts, labels []string) *CounterVec {
-	cv := &CounterVec{
-		CounterVec:     nil,
-		CounterOpts:    opts,
-		originalLabels: labels,
-		registerable: registerable{},
-	}
-	cv.init(cv)
-	return cv
+// functions for CounterVec
+func (v *CounterVec) GetDeprecatedVersion() *Version {
+	return v.CounterOpts.DeprecatedVersion
 }
 
 func (v *CounterVec) RegisterMetric() {
@@ -117,22 +109,14 @@ func (v *CounterVec) RegisterDeprecatedMetric() {
 // todo(cont):  need to ensure that this no-opts and does not create a new metric, otherwise disabling
 // todo(cont):  a metric which causes a memory leak would still continue to leak memory.
 func (v *CounterVec) GetMetricWithLabelValues(lvs ...string) (prometheus.Counter, error) {
-	/*
-		    Do something like:
-			if v.isRegistered {
-				return v.cVec.GetMetricWithLabelValues(lvs ...)
-			} else {
-				return noOptCounter, nil
-			}
-	*/
-	if v.CounterVec == nil {
+	if !v.IsRegistered() {
 		return noop, nil
 	}
 	return v.CounterVec.GetMetricWithLabelValues(lvs...)
 }
 
 func (v *CounterVec) GetMetricWith(labels prometheus.Labels) (prometheus.Counter, error) {
-	if v.CounterVec == nil {
+	if !v.IsRegistered() {
 		return noop, nil
 	}
 	c, e := v.CounterVec.GetMetricWith(labels)
@@ -140,14 +124,14 @@ func (v *CounterVec) GetMetricWith(labels prometheus.Labels) (prometheus.Counter
 }
 
 func (v *CounterVec) WithLabelValues(lvs ...string) prometheus.Counter {
-	if v.CounterVec == nil {
+	if !v.IsRegistered() {
 		return noop
 	}
 	return &KubeCounter{Counter: v.CounterVec.WithLabelValues(lvs...), CounterOpts: v.CounterOpts}
 }
 
 func (v *CounterVec) With(labels prometheus.Labels) prometheus.Counter {
-	if v.CounterVec == nil {
+	if !v.IsRegistered() {
 		return noop
 	}
 	return &KubeCounter{Counter: v.CounterVec.With(labels), CounterOpts: v.CounterOpts}
@@ -169,10 +153,6 @@ func (v *CounterVec) MustCurryWith(labels prometheus.Labels) *CounterVec {
 	return vec
 }
 
-// Reset deletes all metrics in this vector.
-func (v *CounterVec) GetDeprecatedVersion() *Version {
-	return v.CounterOpts.DeprecatedVersion
-}
 
 // Describe implements Collector. It will send exactly one Desc to the provided
 // channel.
@@ -188,4 +168,16 @@ func (v *CounterVec) Collect(ch chan<- prometheus.Metric) {
 // Reset deletes all metrics in this vector.
 func (v *CounterVec) Reset() {
 	v.CounterVec.Reset()
+}
+
+// a helper function to copy the counter options with a modified version of the help field.
+func getDeprecatedCounterOpts(originalOpts CounterOpts) CounterOpts {
+	return CounterOpts{
+		Namespace:         originalOpts.Namespace,
+		Name:              originalOpts.Name,
+		Subsystem:         originalOpts.Subsystem,
+		ConstLabels:       originalOpts.ConstLabels,
+		Help:              fmt.Sprintf("(Deprecated since %v) %v", originalOpts.DeprecatedVersion, originalOpts.Help),
+		DeprecatedVersion: originalOpts.DeprecatedVersion,
+	}
 }

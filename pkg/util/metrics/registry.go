@@ -33,10 +33,10 @@ func (kr *KubeRegistry) MustRegister(cs ...KubeCollector) {
 		}
 
 		if c.GetDeprecatedVersion() != nil && c.GetDeprecatedVersion().compareInternal(kr.version) == 0 {
-			c.MarkRegistered(true)
+			c.InitializeMetric(IsDeprecated)
 			metrics = append(metrics, c)
 		} else {
-			c.MarkRegistered(false)
+			c.InitializeMetric(NotDeprecated)
 			metrics = append(metrics, c)
 		}
 	}
