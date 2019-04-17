@@ -47,6 +47,8 @@ type KubeHistogram struct {
 	registerable
 }
 
+// NewHistogram returns an object which is Histogram-like. However, nothing
+// will be measured until the histogram is registered somewhere.
 func NewHistogram(opts HistogramOpts) *KubeHistogram {
 	h := &KubeHistogram{
 		Histogram:     noop,
@@ -56,6 +58,45 @@ func NewHistogram(opts HistogramOpts) *KubeHistogram {
 	// store a reference to ourselves so that we can defer registration
 	h.init(h)
 	return h
+}
+
+// GetDeprecatedVersion, InitializeMetric, InitializeDeprecatedMetric are required to
+// satisfy the KubeCollector interface.
+
+// GetDeprecatedVersion returns a pointer to the Version or nil
+func (h *KubeHistogram) GetDeprecatedVersion() *semver.Version {
+	return h.HistogramOpts.DeprecatedVersion
+}
+
+// InitializeMetric invokes the actual prometheus.Histogram object instantiation
+// and stores a reference to it
+func (h *KubeHistogram) InitializeMetric() {
+	h.Histogram = prometheus.NewHistogram(h.HistogramOpts.toPromHistogramOpts())
+}
+
+// InitializeMetric invokes the actual prometheus.Histogram object instantiation
+// but modifies the Help description prior to object instantiation.
+func (h *KubeHistogram) InitializeDeprecatedMetric() {
+	h.HistogramOpts.MarkDeprecated()
+	h.InitializeMetric()
+}
+
+// Observe satisfies the prometheus.Observer interface. This call delegates to
+// the underlying histogram.
+func (h *KubeHistogram) Observe(v float64) {
+	h.Histogram.Observe(v)
+}
+
+// Describe and Collect satisfy the prometheus.Collector interface
+
+// Describe delegates to the wrapped prometheus.Histogram
+func (h *KubeHistogram) Describe(ch chan<- *prometheus.Desc) {
+	h.Histogram.Describe(ch)
+}
+
+// Collect delegates to the wrapped prometheus.Histogram
+func (h *KubeHistogram) Collect(m chan<- prometheus.Metric) {
+	h.Histogram.Collect(m)
 }
 
 type HistogramVec struct {
@@ -75,32 +116,6 @@ func NewHistogramVec(opts HistogramOpts, labels []string) *HistogramVec {
 	return v
 }
 
-// functions for KubeCounter
-func (h *KubeHistogram) GetDeprecatedVersion() *semver.Version {
-	return h.HistogramOpts.DeprecatedVersion
-}
-
-func (h *KubeHistogram) InitializeMetric() {
-	h.Histogram = prometheus.NewHistogram(h.HistogramOpts.toPromHistogramOpts())
-}
-
-func (h *KubeHistogram) InitializeDeprecatedMetric() {
-	h.HistogramOpts.MarkDeprecated()
-	h.InitializeMetric()
-}
-
-func (h *KubeHistogram) Observe(v float64) {
-	h.Histogram.Observe(v)
-}
-
-func (h *KubeHistogram) Describe(ch chan<- *prometheus.Desc) {
-	h.Histogram.Describe(ch)
-}
-
-func (h *KubeHistogram) Collect(m chan<- prometheus.Metric) {
-	h.Histogram.Collect(m)
-}
-
 // functions for HistogramVec
 func (v *HistogramVec) GetDeprecatedVersion() *semver.Version {
 	return v.HistogramOpts.DeprecatedVersion
@@ -115,14 +130,15 @@ func (v *HistogramVec) InitializeDeprecatedMetric() {
 	v.InitializeMetric()
 }
 
-// todo:        There is a problem with the underlying method call here. Prometheus behavior
-// todo(cont):  here actually results in the creation of a new metric if a metric with the unique
-// todo(cont):  label values is not found in the underlying stored metricMap.
-// todo(cont):  For reference: https://github.com/prometheus/client_golang/blob/master/prometheus/counter.go#L148-L177
+// There is a problem with the underlying Prometheus method call here. Prometheus behavior
+// actually results in the creation of a new metric if a metric with the unique
+// label values is not found in the underlying stored metricMap.
+// For reference: https://github.com/prometheus/client_golang/blob/master/prometheus/counter.go#L148-L177
 
-// todo(cont):  This means if we opt to disable a metric by NOT registering it, then we would also
-// todo(cont):  need to ensure that this no-opts and does not create a new metric, otherwise disabling
-// todo(cont):  a metric which causes a memory leak would still continue to leak memory.
+// This means if we opt to disable a metric by NOT registering it, then we also need to ensure that
+// we do not create new metrics when this is invoked, otherwise disabling a metric which
+// causes a memory leak would still continue to leak memory (since we would be continuing to make
+// arbitrary numbers of metrics for each unique label combo).
 func (v *HistogramVec) GetMetricWithLabelValues(lvs ...string) (prometheus.Observer, error) {
 	if !v.IsRegistered() {
 		return noop, nil

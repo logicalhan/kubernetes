@@ -36,6 +36,8 @@ type KubeCounter struct {
 	registerable
 }
 
+// NewCounter returns an object which is Counter-like. However, nothing
+// will be measured until the counter is actually registered.
 func NewCounter(opts CounterOpts) *KubeCounter {
 	kc := &KubeCounter{
 		Counter:      noop,
@@ -47,6 +49,52 @@ func NewCounter(opts CounterOpts) *KubeCounter {
 	return kc
 }
 
+// GetDeprecatedVersion, InitializeMetric, InitializeDeprecatedMetric are required to
+// satisfy the KubeCollector interface.
+
+// GetDeprecatedVersion returns a pointer to the Version or nil
+func (c *KubeCounter) GetDeprecatedVersion() *semver.Version {
+	return c.CounterOpts.DeprecatedVersion
+}
+
+// InitializeMetric invokes the actual prometheus.Counter object instantiation
+// and stores a reference to it
+func (c *KubeCounter) InitializeMetric() {
+	c.Counter = prometheus.NewCounter(c.CounterOpts.toPromCounterOpts())
+}
+
+// InitializeMetric invokes the actual prometheus.Counter object instantiation
+// but modifies the Help description prior to object instantiation.
+func (c *KubeCounter) InitializeDeprecatedMetric() {
+	c.CounterOpts.MarkDeprecated()
+	c.InitializeMetric()
+}
+
+// Inc and Add satisfy the prometheus.Counter interface
+
+// Inc delegates to the wrapped prometheus.Counter
+func (c *KubeCounter) Inc() {
+	c.Counter.Inc()
+}
+
+// Add delegates to the wrapped prometheus.Counter
+func (c *KubeCounter) Add(v float64) {
+	c.Counter.Add(v)
+}
+
+// Describe and Collect satisfy the prometheus.Collector interface
+
+// Describe delegates to the wrapped prometheus.Counter
+func (c *KubeCounter) Describe(ch chan<- *prometheus.Desc) {
+	c.Counter.Describe(ch)
+}
+
+// Collect delegates to the wrapped prometheus.Counter
+func (c *KubeCounter) Collect(m chan<- prometheus.Metric) {
+	c.Counter.Collect(m)
+}
+
+// Wrappers for Counters with Labels below.
 type CounterVec struct {
 	*prometheus.CounterVec
 	*CounterOpts
@@ -65,37 +113,8 @@ func NewCounterVec(opts CounterOpts, labels []string) *CounterVec {
 	return cv
 }
 
-// functions for KubeCounter
-func (c *KubeCounter) GetDeprecatedVersion() *semver.Version {
-	return c.CounterOpts.DeprecatedVersion
-}
-
-func (c *KubeCounter) InitializeMetric() {
-	c.Counter = prometheus.NewCounter(c.CounterOpts.toPromCounterOpts())
-}
-
-func (c *KubeCounter) InitializeDeprecatedMetric() {
-	c.CounterOpts.MarkDeprecated()
-	c.InitializeMetric()
-}
-
-func (c *KubeCounter) Inc() {
-	c.Counter.Inc()
-}
-
-func (c *KubeCounter) Add(v float64) {
-	c.Counter.Add(v)
-}
-
-func (c *KubeCounter) Describe(ch chan<- *prometheus.Desc) {
-	c.Counter.Describe(ch)
-}
-
-func (c *KubeCounter) Collect(m chan<- prometheus.Metric) {
-	c.Counter.Collect(m)
-}
-
-// functions for CounterVec
+// GetDeprecatedVersion, InitializeMetric, InitializeDeprecatedMetric are required to
+// satisfy the KubeCollector interface.
 func (v *CounterVec) GetDeprecatedVersion() *semver.Version {
 	return v.CounterOpts.DeprecatedVersion
 }
@@ -109,14 +128,15 @@ func (v *CounterVec) InitializeDeprecatedMetric() {
 	v.InitializeMetric()
 }
 
-// todo:        There is a problem with the underlying method call here. Prometheus behavior
-// todo(cont):  here actually results in the creation of a new metric if a metric with the unique
-// todo(cont):  label values is not found in the underlying stored metricMap.
-// todo(cont):  For reference: https://github.com/prometheus/client_golang/blob/master/prometheus/counter.go#L148-L177
+// There is a problem with the underlying Prometheus method call here. Prometheus behavior
+// actually results in the creation of a new metric if a metric with the unique
+// label values is not found in the underlying stored metricMap.
+// For reference: https://github.com/prometheus/client_golang/blob/master/prometheus/counter.go#L148-L177
 
-// todo(cont):  This means if we opt to disable a metric by NOT registering it, then we would also
-// todo(cont):  need to ensure that this no-opts and does not create a new metric, otherwise disabling
-// todo(cont):  a metric which causes a memory leak would still continue to leak memory.
+// This means if we opt to disable a metric by NOT registering it, then we also need to ensure that
+// we do not create new metrics when this is invoked, otherwise disabling a metric which
+// causes a memory leak would still continue to leak memory (since we would be continuing to make
+// arbitrary numbers of metrics for each unique label combo).
 func (v *CounterVec) GetMetricWithLabelValues(lvs ...string) (prometheus.Counter, error) {
 	if !v.IsRegistered() {
 		return noop, nil

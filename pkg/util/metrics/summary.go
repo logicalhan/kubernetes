@@ -45,15 +45,17 @@ func (o SummaryOpts) toPromSummaryOpts() prometheus.SummaryOpts {
 	}
 }
 
-// This is our wrapper function for prometheus counters
-// we store the options the metric was defined with in order
-// to defer initialization until actual metric registration.
+// This is our wrapper for prometheus.Summary metrics.
+// We store the options the metric was defined with in order
+// to defer initialization until the metric is actually registered.
 type KubeSummary struct {
 	prometheus.Summary
 	*SummaryOpts
 	registerable
 }
 
+// NewSummary returns an object which is Summary-like. However, nothing
+// will be measured until the summary is registered somewhere.
 func NewSummary(opts SummaryOpts) *KubeSummary {
 	kc := &KubeSummary{
 		Summary:      noop,
@@ -65,27 +67,41 @@ func NewSummary(opts SummaryOpts) *KubeSummary {
 	return kc
 }
 
+// GetDeprecatedVersion, InitializeMetric, InitializeDeprecatedMetric are required to
+// satisfy the KubeCollector interface.
+
+// GetDeprecatedVersion returns a pointer to the Version or nil
 func (s *KubeSummary) GetDeprecatedVersion() *semver.Version {
 	return s.SummaryOpts.DeprecatedVersion
 }
 
+// InitializeMetric invokes the actual prometheus.Summary object instantiation
+// and stores a reference to it
 func (s *KubeSummary) InitializeMetric() {
 	s.Summary = prometheus.NewSummary(s.SummaryOpts.toPromSummaryOpts())
 }
 
+// InitializeMetric invokes the actual prometheus.Summary object instantiation
+// but modifies the Help description prior to object instantiation.
 func (s *KubeSummary) InitializeDeprecatedMetric() {
 	s.SummaryOpts.MarkDeprecated()
 	s.InitializeMetric()
 }
 
+// Observe satisfies the prometheus.Observer interface. This call delegates to
+// the underlying summary.
 func (s *KubeSummary) Observe(v float64) {
 	s.Summary.Observe(v)
 }
 
+// Describe and Collect satisfy the prometheus.Collector interface
+
+// Describe delegates to the wrapped prometheus.Summary
 func (s *KubeSummary) Describe(ch chan<- *prometheus.Desc) {
 	s.Summary.Describe(ch)
 }
 
+// Collect delegates to the wrapped prometheus.Summary
 func (s *KubeSummary) Collect(m chan<- prometheus.Metric) {
 	s.Summary.Collect(m)
 }
@@ -120,14 +136,15 @@ func (v *SummaryVec) InitializeDeprecatedMetric() {
 	v.InitializeMetric()
 }
 
-// todo:        There is a problem with the underlying method call here. Prometheus behavior
-// todo(cont):  here actually results in the creation of a new metric if a metric with the unique
-// todo(cont):  label values is not found in the underlying stored metricMap.
-// todo(cont):  For reference: https://github.com/prometheus/client_golang/blob/master/prometheus/counter.go#L148-L177
+// There is a problem with the underlying Prometheus method call here. Prometheus behavior
+// actually results in the creation of a new metric if a metric with the unique
+// label values is not found in the underlying stored metricMap.
+// For reference: https://github.com/prometheus/client_golang/blob/master/prometheus/counter.go#L148-L177
 
-// todo(cont):  This means if we opt to disable a metric by NOT registering it, then we would also
-// todo(cont):  need to ensure that this no-opts and does not create a new metric, otherwise disabling
-// todo(cont):  a metric which causes a memory leak would still continue to leak memory.
+// This means if we opt to disable a metric by NOT registering it, then we also need to ensure that
+// we do not create new metrics when this is invoked, otherwise disabling a metric which
+// causes a memory leak would still continue to leak memory (since we would be continuing to make
+// arbitrary numbers of metrics for each unique label combo).
 func (v *SummaryVec) GetMetricWithLabelValues(lvs ...string) (prometheus.Observer, error) {
 	if !v.IsRegistered() {
 		return noop, nil

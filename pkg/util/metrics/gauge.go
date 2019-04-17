@@ -17,22 +17,27 @@ func (o *GaugeOpts) MarkDeprecated() {
 
 // convenience function to allow easy transformation to the prometheus
 // counterpart. This will do more logic once we have a proper label abstraction
-func (c GaugeOpts) toPromGaugeOpts() prometheus.GaugeOpts {
+func (o GaugeOpts) toPromGaugeOpts() prometheus.GaugeOpts {
 	return prometheus.GaugeOpts{
-		Namespace:   c.Namespace,
-		Subsystem:   c.Subsystem,
-		Name:        c.Name,
-		Help:        c.Help,
-		ConstLabels: c.ConstLabels,
+		Namespace:   o.Namespace,
+		Subsystem:   o.Subsystem,
+		Name:        o.Name,
+		Help:        o.Help,
+		ConstLabels: o.ConstLabels,
 	}
 }
 
+// This is our wrapper function for Prometheus gauges.
+// We store the options the metric was defined with in order
+// to defer initialization until actual metric registration.
 type KubeGauge struct {
 	prometheus.Gauge
 	*GaugeOpts
 	registerable
 }
 
+// NewGauge returns an object which is Gauge-like. However, nothing
+// will be measured until the gauge is registered somewhere.
 func NewGauge(opts GaugeOpts) *KubeGauge {
 	kg := &KubeGauge{
 		Gauge:        noop,
@@ -43,37 +48,28 @@ func NewGauge(opts GaugeOpts) *KubeGauge {
 	return kg
 }
 
-type GaugeVec struct {
-	*prometheus.GaugeVec
-	*GaugeOpts
-	registerable
-	originalLabels []string
-}
+// GetDeprecatedVersion, InitializeMetric, InitializeDeprecatedMetric are required to
+// satisfy the KubeCollector interface.
 
-func NewGaugeVec(opts GaugeOpts, labels []string) *GaugeVec {
-	cv := &GaugeVec{
-		GaugeOpts:      &opts,
-		originalLabels: labels,
-		registerable:   registerable{},
-	}
-	cv.init(cv)
-	return cv
-}
-
-// functions for KubeGauge
+// GetDeprecatedVersion returns a pointer to the Version or nil
 func (g *KubeGauge) GetDeprecatedVersion() *semver.Version {
 	return g.GaugeOpts.DeprecatedVersion
 }
 
+// InitializeMetric invokes the actual prometheus.Gauge object instantiation
+// and stores a reference to it
 func (g *KubeGauge) InitializeMetric() {
 	g.Gauge = prometheus.NewGauge(g.GaugeOpts.toPromGaugeOpts())
 }
 
+// InitializeMetric invokes the actual prometheus.Gauge object instantiation
+// but modifies the Help description prior to object instantiation.
 func (g *KubeGauge) InitializeDeprecatedMetric() {
 	g.GaugeOpts.MarkDeprecated()
 	g.InitializeMetric()
 }
 
+// Inc,Add,Set,Sub,SetToCurrentTime satisfy the prometheus.Gauge interface
 func (g *KubeGauge) Inc() {
 	g.Gauge.Inc()
 }
@@ -94,12 +90,33 @@ func (g *KubeGauge) SetToCurrentTime() {
 	g.Gauge.SetToCurrentTime()
 }
 
+// Describe and Collect satisfy the prometheus.Collector interface
+
+// Describe delegates to the wrapped prometheus.Gauge
 func (g *KubeGauge) Describe(ch chan<- *prometheus.Desc) {
 	g.Gauge.Describe(ch)
 }
 
+// Collect delegates to the wrapped prometheus.Gauge
 func (g *KubeGauge) Collect(m chan<- prometheus.Metric) {
 	g.Gauge.Collect(m)
+}
+
+type GaugeVec struct {
+	*prometheus.GaugeVec
+	*GaugeOpts
+	registerable
+	originalLabels []string
+}
+
+func NewGaugeVec(opts GaugeOpts, labels []string) *GaugeVec {
+	cv := &GaugeVec{
+		GaugeOpts:      &opts,
+		originalLabels: labels,
+		registerable:   registerable{},
+	}
+	cv.init(cv)
+	return cv
 }
 
 // functions for GaugeVec
@@ -116,14 +133,15 @@ func (v *GaugeVec) InitializeDeprecatedMetric() {
 	v.InitializeMetric()
 }
 
-// todo:        There is a problem with the underlying method call here. Prometheus behavior
-// todo(cont):  here actually results in the creation of a new metric if a metric with the unique
-// todo(cont):  label values is not found in the underlying stored metricMap.
-// todo(cont):  For reference: https://github.com/prometheus/client_golang/blob/master/prometheus/counter.go#L148-L177
+// There is a problem with the underlying Prometheus method call here. Prometheus behavior
+// actually results in the creation of a new metric if a metric with the unique
+// label values is not found in the underlying stored metricMap.
+// For reference: https://github.com/prometheus/client_golang/blob/master/prometheus/Gauge.go#L148-L177
 
-// todo(cont):  This means if we opt to disable a metric by NOT registering it, then we would also
-// todo(cont):  need to ensure that this no-opts and does not create a new metric, otherwise disabling
-// todo(cont):  a metric which causes a memory leak would still continue to leak memory.
+// This means if we opt to disable a metric by NOT registering it, then we also need to ensure that
+// we do not create new metrics when this is invoked, otherwise disabling a metric which
+// causes a memory leak would still continue to leak memory (since we would be continuing to make
+// arbitrary numbers of metrics for each unique label combo).
 func (v *GaugeVec) GetMetricWithLabelValues(lvs ...string) (prometheus.Gauge, error) {
 	if !v.IsRegistered() {
 		return noop, nil
