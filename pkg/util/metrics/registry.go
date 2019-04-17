@@ -20,32 +20,35 @@ type KubeRegistry struct {
 	version  *Version
 }
 
-func (kr *KubeRegistry) Register(collector DeprecatableCollector) error {
+func (kr *KubeRegistry) Register(collector KubeCollector) error {
 	return kr.registry.Register(collector)
 }
 
-func (kr *KubeRegistry) MustRegister(cs ...DeprecatableCollector) {
-	metrics := make([]prometheus.Collector, 0)
+func (kr *KubeRegistry) MustRegister(cs ...KubeCollector) {
+	metrics := make([]prometheus.Collector, 0, len(cs))
 	for _, c := range cs {
 		if c.GetDeprecatedVersion() != nil && c.GetDeprecatedVersion().compareInternal(kr.version) < 0 {
 			klog.Warningf("This metric has been deprecated for more than one release, hiding.")
 			continue
-		} else if c.GetDeprecatedVersion() != nil && c.GetDeprecatedVersion().compareInternal(kr.version) == 0 {
-			c.MarkDeprecated()
+		}
+
+		if c.GetDeprecatedVersion() != nil && c.GetDeprecatedVersion().compareInternal(kr.version) == 0 {
+			c.MarkRegistered(true)
 			metrics = append(metrics, c)
 		} else {
+			c.MarkRegistered(false)
 			metrics = append(metrics, c)
 		}
 	}
 	kr.registry.MustRegister(metrics...)
 }
 
-func (kr *KubeRegistry) Unregister(collector DeprecatableCollector) bool {
+func (kr *KubeRegistry) Unregister(collector KubeCollector) bool {
 	return kr.registry.Unregister(collector)
 }
 
-func (r *KubeRegistry) Gather() ([]*dto.MetricFamily, error) {
-	return r.registry.Gather()
+func (kr *KubeRegistry) Gather() ([]*dto.MetricFamily, error) {
+	return kr.registry.Gather()
 }
 
 // NewRegistry creates a new vanilla Registry without any Collectors
