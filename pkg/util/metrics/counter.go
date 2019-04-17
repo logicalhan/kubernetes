@@ -2,6 +2,7 @@ package metrics
 
 import (
 	"fmt"
+	"github.com/blang/semver"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
@@ -65,7 +66,7 @@ func NewCounterVec(opts CounterOpts, labels []string) *CounterVec {
 }
 
 // functions for KubeCounter
-func (c *KubeCounter) GetDeprecatedVersion() *Version {
+func (c *KubeCounter) GetDeprecatedVersion() *semver.Version {
 	return c.CounterOpts.DeprecatedVersion
 }
 
@@ -95,7 +96,7 @@ func (c *KubeCounter) Collect(m chan<- prometheus.Metric) {
 }
 
 // functions for CounterVec
-func (v *CounterVec) GetDeprecatedVersion() *Version {
+func (v *CounterVec) GetDeprecatedVersion() *semver.Version {
 	return v.CounterOpts.DeprecatedVersion
 }
 

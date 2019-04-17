@@ -1,15 +1,18 @@
 package metrics
 
 import (
+	"github.com/blang/semver"
 	"github.com/prometheus/client_golang/prometheus"
 	"testing"
 )
 
 func TestHistogram(t *testing.T) {
+	v115 := semver.MustParse("1.15.0")
+	v114 := semver.MustParse("1.14.0")
 	var tests = []struct {
 		desc string
 		HistogramOpts
-		registryVersion     *Version
+		registryVersion     *semver.Version
 		expectedMetricCount int
 		expectedHelp        string
 	}{
@@ -22,7 +25,7 @@ func TestHistogram(t *testing.T) {
 				Help:      "counter help",
 				Buckets:   prometheus.DefBuckets,
 			},
-			registryVersion:     MustParseGeneric("1.15.0"),
+			registryVersion:     &v115,
 			expectedMetricCount: 1,
 			expectedHelp:        "counter help",
 		},
@@ -33,10 +36,10 @@ func TestHistogram(t *testing.T) {
 				Name:              "metric_test_name",
 				Subsystem:         "subsystem",
 				Help:              "counter help",
-				DeprecatedVersion: MustParseGeneric("1.15.0"),
+				DeprecatedVersion: &v115,
 				Buckets:           prometheus.DefBuckets,
 			},
-			registryVersion:     MustParseGeneric("1.15.0"),
+			registryVersion:     &v115,
 			expectedMetricCount: 1,
 			expectedHelp:        "(Deprecated since 1.15.0) counter help",
 		},
@@ -47,10 +50,10 @@ func TestHistogram(t *testing.T) {
 				Name:              "metric_test_name",
 				Subsystem:         "subsystem",
 				Help:              "counter help",
-				DeprecatedVersion: MustParseGeneric("1.14.0"),
+				DeprecatedVersion: &v114,
 				Buckets:           prometheus.DefBuckets,
 			},
-			registryVersion:     MustParseGeneric("1.15.0"),
+			registryVersion:     &v115,
 			expectedMetricCount: 0,
 			expectedHelp:        "counter help",
 		},
@@ -58,7 +61,7 @@ func TestHistogram(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.desc, func(t *testing.T) {
-			registry := NewKubeRegistry(test.registryVersion)
+			registry := NewKubeRegistry(*test.registryVersion)
 			c := NewHistogram(test.HistogramOpts)
 			registry.MustRegister(c)
 
@@ -97,11 +100,13 @@ func TestHistogram(t *testing.T) {
 }
 
 func TestHistogramVec(t *testing.T) {
+	v115 := semver.MustParse("1.15.0")
+	v114 := semver.MustParse("1.14.0")
 	var tests = []struct {
 		desc string
 		HistogramOpts
 		labels              []string
-		registryVersion     *Version
+		registryVersion     *semver.Version
 		expectedMetricCount int
 		expectedHelp        string
 	}{
@@ -115,7 +120,7 @@ func TestHistogramVec(t *testing.T) {
 				Buckets:   prometheus.DefBuckets,
 			},
 			labels:              []string{"label_a", "label_b"},
-			registryVersion:     MustParseGeneric("1.15.0"),
+			registryVersion:     &v115,
 			expectedMetricCount: 1,
 			expectedHelp:        "counter help",
 		},
@@ -126,11 +131,11 @@ func TestHistogramVec(t *testing.T) {
 				Name:              "metric_test_name",
 				Subsystem:         "subsystem",
 				Help:              "counter help",
-				DeprecatedVersion: MustParseGeneric("1.15.0"),
+				DeprecatedVersion: &v115,
 				Buckets:           prometheus.DefBuckets,
 			},
 			labels:              []string{"label_a", "label_b"},
-			registryVersion:     MustParseGeneric("1.15.0"),
+			registryVersion:     &v115,
 			expectedMetricCount: 1,
 			expectedHelp:        "(Deprecated since 1.15.0) counter help",
 		},
@@ -141,11 +146,11 @@ func TestHistogramVec(t *testing.T) {
 				Name:              "metric_test_name",
 				Subsystem:         "subsystem",
 				Help:              "counter help",
-				DeprecatedVersion: MustParseGeneric("1.14.0"),
+				DeprecatedVersion: &v114,
 				Buckets:           prometheus.DefBuckets,
 			},
 			labels:              []string{"label_a", "label_b"},
-			registryVersion:     MustParseGeneric("1.15.0"),
+			registryVersion:     &v115,
 			expectedMetricCount: 0,
 			expectedHelp:        "counter help",
 		},
@@ -153,7 +158,7 @@ func TestHistogramVec(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.desc, func(t *testing.T) {
-			registry := NewKubeRegistry(test.registryVersion)
+			registry := NewKubeRegistry(*test.registryVersion)
 			c := NewHistogramVec(test.HistogramOpts, test.labels)
 			registry.MustRegister(c)
 			c.WithLabelValues("1", "2").Observe(1.0)

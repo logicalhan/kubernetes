@@ -2,6 +2,7 @@ package metrics
 
 import (
 	"fmt"
+	"github.com/blang/semver"
 	"github.com/prometheus/client_golang/prometheus"
 	"sync"
 	"time"
@@ -17,7 +18,7 @@ type SummaryOpts struct {
 	MaxAge            time.Duration
 	AgeBuckets        uint32
 	BufCap            uint32
-	DeprecatedVersion *Version
+	DeprecatedVersion *semver.Version
 	deprecateOnce     sync.Once
 }
 
@@ -64,7 +65,7 @@ func NewSummary(opts SummaryOpts) *KubeSummary {
 	return kc
 }
 
-func (s *KubeSummary) GetDeprecatedVersion() *Version {
+func (s *KubeSummary) GetDeprecatedVersion() *semver.Version {
 	return s.SummaryOpts.DeprecatedVersion
 }
 
@@ -106,7 +107,7 @@ func NewSummaryVec(opts SummaryOpts, labels []string) *SummaryVec {
 	return v
 }
 
-func (v *SummaryVec) GetDeprecatedVersion() *Version {
+func (v *SummaryVec) GetDeprecatedVersion() *semver.Version {
 	return v.SummaryOpts.DeprecatedVersion
 }
 

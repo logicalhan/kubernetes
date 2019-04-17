@@ -1,14 +1,21 @@
 package metrics
 
 import (
+	"github.com/blang/semver"
 	"testing"
 )
 
+var (
+	v115 = semver.MustParse("1.15.0")
+	v114 = semver.MustParse("1.14.0")
+)
+
 func TestSummary(t *testing.T) {
+
 	var tests = []struct {
 		desc string
 		SummaryOpts
-		registryVersion     *Version
+		registryVersion     *semver.Version
 		expectedMetricCount int
 		expectedHelp        string
 	}{
@@ -20,7 +27,7 @@ func TestSummary(t *testing.T) {
 				Subsystem: "subsystem",
 				Help:      "counter help",
 			},
-			registryVersion:     MustParseGeneric("1.15.0"),
+			registryVersion:     &v115,
 			expectedMetricCount: 1,
 			expectedHelp:        "counter help",
 		},
@@ -31,9 +38,9 @@ func TestSummary(t *testing.T) {
 				Name:              "metric_test_name",
 				Subsystem:         "subsystem",
 				Help:              "counter help",
-				DeprecatedVersion: MustParseGeneric("1.15.0"),
+				DeprecatedVersion: &v115,
 			},
-			registryVersion:     MustParseGeneric("1.15.0"),
+			registryVersion:     &v115,
 			expectedMetricCount: 1,
 			expectedHelp:        "(Deprecated since 1.15.0) counter help",
 		},
@@ -44,9 +51,9 @@ func TestSummary(t *testing.T) {
 				Name:              "metric_test_name",
 				Subsystem:         "subsystem",
 				Help:              "counter help",
-				DeprecatedVersion: MustParseGeneric("1.14.0"),
+				DeprecatedVersion: &v114,
 			},
-			registryVersion:     MustParseGeneric("1.15.0"),
+			registryVersion:     &v115,
 			expectedMetricCount: 0,
 			expectedHelp:        "counter help",
 		},
@@ -54,7 +61,7 @@ func TestSummary(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.desc, func(t *testing.T) {
-			registry := NewKubeRegistry(test.registryVersion)
+			registry := NewKubeRegistry(*test.registryVersion)
 			c := NewSummary(test.SummaryOpts)
 			registry.MustRegister(c)
 
@@ -97,7 +104,7 @@ func TestSummaryVec(t *testing.T) {
 		desc string
 		SummaryOpts
 		labels              []string
-		registryVersion     *Version
+		registryVersion     *semver.Version
 		expectedMetricCount int
 		expectedHelp        string
 	}{
@@ -110,7 +117,7 @@ func TestSummaryVec(t *testing.T) {
 				Help:      "counter help",
 			},
 			labels:              []string{"label_a", "label_b"},
-			registryVersion:     MustParseGeneric("1.15.0"),
+			registryVersion:     &v115,
 			expectedMetricCount: 1,
 			expectedHelp:        "counter help",
 		},
@@ -121,10 +128,10 @@ func TestSummaryVec(t *testing.T) {
 				Name:              "metric_test_name",
 				Subsystem:         "subsystem",
 				Help:              "counter help",
-				DeprecatedVersion: MustParseGeneric("1.15.0"),
+				DeprecatedVersion: &v115,
 			},
 			labels:              []string{"label_a", "label_b"},
-			registryVersion:     MustParseGeneric("1.15.0"),
+			registryVersion:     &v115,
 			expectedMetricCount: 1,
 			expectedHelp:        "(Deprecated since 1.15.0) counter help",
 		},
@@ -135,10 +142,10 @@ func TestSummaryVec(t *testing.T) {
 				Name:              "metric_test_name",
 				Subsystem:         "subsystem",
 				Help:              "counter help",
-				DeprecatedVersion: MustParseGeneric("1.14.0"),
+				DeprecatedVersion: &v114,
 			},
 			labels:              []string{"label_a", "label_b"},
-			registryVersion:     MustParseGeneric("1.15.0"),
+			registryVersion:     &v115,
 			expectedMetricCount: 0,
 			expectedHelp:        "counter help",
 		},
@@ -146,7 +153,7 @@ func TestSummaryVec(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.desc, func(t *testing.T) {
-			registry := NewKubeRegistry(test.registryVersion)
+			registry := NewKubeRegistry(*test.registryVersion)
 			c := NewSummaryVec(test.SummaryOpts, test.labels)
 			registry.MustRegister(c)
 			c.WithLabelValues("1", "2").Observe(1.0)

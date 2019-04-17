@@ -1,6 +1,7 @@
 package metrics
 
 import (
+	"github.com/blang/semver"
 	"github.com/prometheus/client_golang/prometheus"
 	"sync"
 
@@ -22,7 +23,7 @@ const (
 type KubeCollector interface {
 	prometheus.Collector
 	Registerable
-	GetDeprecatedVersion() *Version
+	GetDeprecatedVersion() *semver.Version
 	// Each collector metric should provide an initialization function
 	// for both deprecated and non-deprecated variants of a metric. This
 	// is necessary since we are now deferring metric instantiation

@@ -2,6 +2,7 @@ package metrics
 
 import (
 	"fmt"
+	"github.com/blang/semver"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
@@ -60,7 +61,7 @@ func NewGaugeVec(opts GaugeOpts, labels []string) *GaugeVec {
 }
 
 // functions for KubeGauge
-func (g *KubeGauge) GetDeprecatedVersion() *Version {
+func (g *KubeGauge) GetDeprecatedVersion() *semver.Version {
 	return g.GaugeOpts.DeprecatedVersion
 }
 
@@ -102,7 +103,7 @@ func (g *KubeGauge) Collect(m chan<- prometheus.Metric) {
 }
 
 // functions for GaugeVec
-func (v *GaugeVec) GetDeprecatedVersion() *Version {
+func (v *GaugeVec) GetDeprecatedVersion() *semver.Version {
 	return v.GaugeOpts.DeprecatedVersion
 }
 

@@ -1,6 +1,7 @@
 package metrics
 
 import (
+	"github.com/blang/semver"
 	"github.com/prometheus/client_golang/prometheus"
 	"sync"
 )
@@ -11,6 +12,6 @@ type Opts struct {
 	Name              string
 	Help              string
 	ConstLabels       prometheus.Labels
-	DeprecatedVersion *Version
+	DeprecatedVersion *semver.Version
 	deprecateOnce     sync.Once
 }

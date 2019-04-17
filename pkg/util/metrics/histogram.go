@@ -2,6 +2,7 @@ package metrics
 
 import (
 	"fmt"
+	"github.com/blang/semver"
 	"github.com/prometheus/client_golang/prometheus"
 	"sync"
 )
@@ -13,7 +14,7 @@ type HistogramOpts struct {
 	Help              string
 	ConstLabels       prometheus.Labels
 	Buckets           []float64
-	DeprecatedVersion *Version
+	DeprecatedVersion *semver.Version
 	deprecateOnce     sync.Once
 }
 
@@ -75,7 +76,7 @@ func NewHistogramVec(opts HistogramOpts, labels []string) *HistogramVec {
 }
 
 // functions for KubeCounter
-func (h *KubeHistogram) GetDeprecatedVersion() *Version {
+func (h *KubeHistogram) GetDeprecatedVersion() *semver.Version {
 	return h.HistogramOpts.DeprecatedVersion
 }
 
@@ -101,7 +102,7 @@ func (h *KubeHistogram) Collect(m chan<- prometheus.Metric) {
 }
 
 // functions for HistogramVec
-func (v *HistogramVec) GetDeprecatedVersion() *Version {
+func (v *HistogramVec) GetDeprecatedVersion() *semver.Version {
 	return v.HistogramOpts.DeprecatedVersion
 }
 
