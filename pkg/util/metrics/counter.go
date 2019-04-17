@@ -7,6 +7,10 @@ import (
 
 type CounterOpts Opts
 
+func (o *CounterOpts) DeprecateHelpText() {
+	o.Help = fmt.Sprintf("(Deprecated since %v) %v", o.DeprecatedVersion, o.Help)
+}
+
 // convenience function to allow easy transformation to the prometheus
 // counterpart. This will do more once we have a proper label abstraction
 func (c CounterOpts) toPromCounterOpts() prometheus.CounterOpts {
@@ -23,14 +27,14 @@ func (c CounterOpts) toPromCounterOpts() prometheus.CounterOpts {
 // to defer initialization until actual metric registration.
 type KubeCounter struct {
 	prometheus.Counter
-	CounterOpts
+	*CounterOpts
 	registerable
 }
 
 func NewCounter(opts CounterOpts) *KubeCounter {
 	kc := &KubeCounter{
 		Counter:      noop,
-		CounterOpts:  opts,
+		CounterOpts:  &opts,
 		registerable: registerable{},
 	}
 	// store a reference to ourselves so that we can defer registration
@@ -40,7 +44,7 @@ func NewCounter(opts CounterOpts) *KubeCounter {
 
 type CounterVec struct {
 	*prometheus.CounterVec
-	CounterOpts
+	*CounterOpts
 	registerable
 	originalLabels []string
 }
@@ -48,7 +52,7 @@ type CounterVec struct {
 func NewCounterVec(opts CounterOpts, labels []string) *CounterVec {
 	cv := &CounterVec{
 		CounterVec:     nil,
-		CounterOpts:    opts,
+		CounterOpts:    &opts,
 		originalLabels: labels,
 		registerable:   registerable{},
 	}
@@ -66,7 +70,8 @@ func (c *KubeCounter) RegisterMetric() {
 }
 
 func (c *KubeCounter) RegisterDeprecatedMetric() {
-	c.Counter = prometheus.NewCounter(getDeprecatedCounterOpts(c.CounterOpts).toPromCounterOpts())
+	c.CounterOpts.DeprecateHelpText()
+	c.RegisterMetric()
 }
 
 func (c *KubeCounter) Inc() {
@@ -95,7 +100,8 @@ func (v *CounterVec) RegisterMetric() {
 }
 
 func (v *CounterVec) RegisterDeprecatedMetric() {
-	v.CounterVec = prometheus.NewCounterVec(getDeprecatedCounterOpts(v.CounterOpts).toPromCounterOpts(), v.originalLabels)
+	v.CounterOpts.DeprecateHelpText()
+	v.RegisterMetric()
 }
 
 // todo:        There is a problem with the underlying method call here. Prometheus behavior
@@ -165,16 +171,4 @@ func (v *CounterVec) Collect(ch chan<- prometheus.Metric) {
 // Reset deletes all metrics in this vector.
 func (v *CounterVec) Reset() {
 	v.CounterVec.Reset()
-}
-
-// a helper function to copy the counter options with a modified version of the help field.
-func getDeprecatedCounterOpts(originalOpts CounterOpts) CounterOpts {
-	return CounterOpts{
-		Namespace:         originalOpts.Namespace,
-		Name:              originalOpts.Name,
-		Subsystem:         originalOpts.Subsystem,
-		ConstLabels:       originalOpts.ConstLabels,
-		Help:              fmt.Sprintf("(Deprecated since %v) %v", originalOpts.DeprecatedVersion, originalOpts.Help),
-		DeprecatedVersion: originalOpts.DeprecatedVersion,
-	}
 }
