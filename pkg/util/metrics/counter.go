@@ -7,8 +7,11 @@ import (
 
 type CounterOpts Opts
 
-func (o *CounterOpts) DeprecateHelpText() {
-	o.Help = fmt.Sprintf("(Deprecated since %v) %v", o.DeprecatedVersion, o.Help)
+// Modify help description on the metric description.
+func (o *CounterOpts) MarkDeprecated() {
+	o.deprecateOnce.Do(func() {
+		o.Help = fmt.Sprintf("(Deprecated since %v) %v", o.DeprecatedVersion, o.Help)
+	})
 }
 
 // convenience function to allow easy transformation to the prometheus
@@ -19,7 +22,8 @@ func (c CounterOpts) toPromCounterOpts() prometheus.CounterOpts {
 		Subsystem:   c.Subsystem,
 		Name:        c.Name,
 		Help:        c.Help,
-		ConstLabels: c.ConstLabels}
+		ConstLabels: c.ConstLabels,
+	}
 }
 
 // This is our wrapper function for prometheus counters
@@ -70,7 +74,7 @@ func (c *KubeCounter) RegisterMetric() {
 }
 
 func (c *KubeCounter) RegisterDeprecatedMetric() {
-	c.CounterOpts.DeprecateHelpText()
+	c.CounterOpts.MarkDeprecated()
 	c.RegisterMetric()
 }
 
@@ -100,7 +104,7 @@ func (v *CounterVec) RegisterMetric() {
 }
 
 func (v *CounterVec) RegisterDeprecatedMetric() {
-	v.CounterOpts.DeprecateHelpText()
+	v.CounterOpts.MarkDeprecated()
 	v.RegisterMetric()
 }
 
