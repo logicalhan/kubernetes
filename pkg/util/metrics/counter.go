@@ -73,7 +73,7 @@ func (c *KubeCounter) RegisterMetric() {
 	c.Counter = prometheus.NewCounter(c.CounterOpts.toPromCounterOpts())
 }
 
-func (c *KubeCounter) RegisterDeprecatedMetric() {
+func (c *KubeCounter) DeprecateAndRegisterMetric() {
 	c.CounterOpts.MarkDeprecated()
 	c.RegisterMetric()
 }
@@ -103,7 +103,7 @@ func (v *CounterVec) RegisterMetric() {
 	v.CounterVec = prometheus.NewCounterVec(v.CounterOpts.toPromCounterOpts(), v.originalLabels)
 }
 
-func (v *CounterVec) RegisterDeprecatedMetric() {
+func (v *CounterVec) DeprecateAndRegisterMetric() {
 	v.CounterOpts.MarkDeprecated()
 	v.RegisterMetric()
 }

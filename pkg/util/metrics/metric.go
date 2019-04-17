@@ -23,7 +23,7 @@ type KubeCollector interface {
 	prometheus.Collector
 	Registerable
 	GetDeprecatedVersion() *Version
-	RegisterDeprecatedMetric()
+	DeprecateAndRegisterMetric()
 	RegisterMetric()
 }
 
@@ -39,7 +39,7 @@ type registerable struct {
 	self         KubeCollector
 }
 
-// Store a reference so that we can defer initialization of the metric
+// Store a reference so that we can defer initialization of the metric until it is registered
 func (r *registerable) init(self KubeCollector) {
 	r.self = self
 }
@@ -54,7 +54,7 @@ func (r *registerable) InitializeMetric(isDeprecated Deprecated) {
 	r.registerOnce.Do(func() {
 		r.isRegistered = true
 		if isDeprecated {
-			r.self.RegisterDeprecatedMetric()
+			r.self.DeprecateAndRegisterMetric()
 		} else {
 			r.self.RegisterMetric()
 		}
@@ -76,7 +76,9 @@ func (noopMetric) Inc()                             {}
 func (noopMetric) Add(float64)                      {}
 func (noopMetric) Dec()                             {}
 func (noopMetric) Set(float64)                      {}
+func (noopMetric) Sub(float64)                      {}
 func (noopMetric) Observe(float64)                  {}
+func (noopMetric) SetToCurrentTime()                {}
 func (noopMetric) Desc() *prometheus.Desc           { return nil }
 func (noopMetric) Write(*dto.Metric) error          { return nil }
 func (noopMetric) Describe(chan<- *prometheus.Desc) {}
