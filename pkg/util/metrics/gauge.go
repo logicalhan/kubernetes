@@ -64,13 +64,13 @@ func (g *KubeGauge) GetDeprecatedVersion() *Version {
     return g.GaugeOpts.DeprecatedVersion
 }
 
-func (g *KubeGauge) RegisterMetric() {
+func (g *KubeGauge) InitializeMetric() {
     g.Gauge = prometheus.NewGauge(g.GaugeOpts.toPromGaugeOpts())
 }
 
-func (g *KubeGauge) DeprecateAndRegisterMetric() {
+func (g *KubeGauge) InitializeDeprecatedMetric() {
     g.GaugeOpts.MarkDeprecated()
-    g.RegisterMetric()
+    g.InitializeMetric()
 }
 
 func (g *KubeGauge) Inc() {
@@ -107,13 +107,13 @@ func (v *GaugeVec) GetDeprecatedVersion() *Version {
     return v.GaugeOpts.DeprecatedVersion
 }
 
-func (v *GaugeVec) RegisterMetric() {
+func (v *GaugeVec) InitializeMetric() {
     v.GaugeVec = prometheus.NewGaugeVec(v.GaugeOpts.toPromGaugeOpts(), v.originalLabels)
 }
 
-func (v *GaugeVec) DeprecateAndRegisterMetric() {
+func (v *GaugeVec) InitializeDeprecatedMetric() {
     v.GaugeOpts.MarkDeprecated()
-    v.RegisterMetric()
+    v.InitializeMetric()
 }
 
 // todo:        There is a problem with the underlying method call here. Prometheus behavior

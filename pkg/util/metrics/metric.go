@@ -23,12 +23,17 @@ type KubeCollector interface {
 	prometheus.Collector
 	Registerable
 	GetDeprecatedVersion() *Version
-	DeprecateAndRegisterMetric()
-	RegisterMetric()
+	// Each collector metric should provide an initialization function
+	// for both deprecated and non-deprecated variants of a metric. This
+	// is necessary since we are now deferring metric instantiation
+	// until the metric is actually registered somewhere.
+	InitializeDeprecatedMetric()
+	InitializeMetric()
 }
 
+// This provides an interface for the registry layer.
 type Registerable interface {
-	InitializeMetric(Deprecated)
+	CreateMetric(Deprecated)
 	IsRegistered() bool
 }
 
@@ -50,13 +55,13 @@ func (r *registerable) IsRegistered() bool {
 
 // Defer initialization of metric until we know if we actually need to
 // register the thing.
-func (r *registerable) InitializeMetric(isDeprecated Deprecated) {
+func (r *registerable) CreateMetric(isDeprecated Deprecated) {
 	r.registerOnce.Do(func() {
 		r.isRegistered = true
 		if isDeprecated {
-			r.self.DeprecateAndRegisterMetric()
+			r.self.InitializeDeprecatedMetric()
 		} else {
-			r.self.RegisterMetric()
+			r.self.InitializeMetric()
 		}
 	})
 }

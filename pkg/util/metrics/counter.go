@@ -69,13 +69,13 @@ func (c *KubeCounter) GetDeprecatedVersion() *Version {
 	return c.CounterOpts.DeprecatedVersion
 }
 
-func (c *KubeCounter) RegisterMetric() {
+func (c *KubeCounter) InitializeMetric() {
 	c.Counter = prometheus.NewCounter(c.CounterOpts.toPromCounterOpts())
 }
 
-func (c *KubeCounter) DeprecateAndRegisterMetric() {
+func (c *KubeCounter) InitializeDeprecatedMetric() {
 	c.CounterOpts.MarkDeprecated()
-	c.RegisterMetric()
+	c.InitializeMetric()
 }
 
 func (c *KubeCounter) Inc() {
@@ -99,13 +99,13 @@ func (v *CounterVec) GetDeprecatedVersion() *Version {
 	return v.CounterOpts.DeprecatedVersion
 }
 
-func (v *CounterVec) RegisterMetric() {
+func (v *CounterVec) InitializeMetric() {
 	v.CounterVec = prometheus.NewCounterVec(v.CounterOpts.toPromCounterOpts(), v.originalLabels)
 }
 
-func (v *CounterVec) DeprecateAndRegisterMetric() {
+func (v *CounterVec) InitializeDeprecatedMetric() {
 	v.CounterOpts.MarkDeprecated()
-	v.RegisterMetric()
+	v.InitializeMetric()
 }
 
 // todo:        There is a problem with the underlying method call here. Prometheus behavior
