@@ -42,7 +42,7 @@ type CounterVec struct {
 	*prometheus.CounterVec
 	CounterOpts
 	registerable
-	originalLabels       []string
+	originalLabels []string
 }
 
 func NewCounterVec(opts CounterOpts, labels []string) *CounterVec {
@@ -55,7 +55,6 @@ func NewCounterVec(opts CounterOpts, labels []string) *CounterVec {
 	cv.init(cv)
 	return cv
 }
-
 
 // functions for KubeCounter
 func (c *KubeCounter) GetDeprecatedVersion() *Version {
@@ -85,7 +84,6 @@ func (c *KubeCounter) Describe(ch chan<- *prometheus.Desc) {
 func (c *KubeCounter) Collect(m chan<- prometheus.Metric) {
 	c.Counter.Collect(m)
 }
-
 
 // functions for CounterVec
 func (v *CounterVec) GetDeprecatedVersion() *Version {
@@ -137,22 +135,21 @@ func (v *CounterVec) With(labels prometheus.Labels) prometheus.Counter {
 	return &KubeCounter{Counter: v.CounterVec.With(labels), CounterOpts: v.CounterOpts}
 }
 
-func (v *CounterVec) CurryWith(labels prometheus.Labels) (*CounterVec, error) {
+func (v *CounterVec) CurryWith(labels prometheus.Labels) (*prometheus.CounterVec, error) {
 	vec, err := v.CounterVec.CurryWith(labels)
 	if vec != nil {
-		return &CounterVec{CounterVec: vec, CounterOpts: v.CounterOpts, originalLabels: v.originalLabels}, err
+		return vec, err
 	}
 	return nil, err
 }
 
-func (v *CounterVec) MustCurryWith(labels prometheus.Labels) *CounterVec {
+func (v *CounterVec) MustCurryWith(labels prometheus.Labels) *prometheus.CounterVec {
 	vec, err := v.CurryWith(labels)
 	if err != nil {
 		panic(err)
 	}
 	return vec
 }
-
 
 // Describe implements Collector. It will send exactly one Desc to the provided
 // channel.

@@ -88,11 +88,11 @@ func TestCounter(t *testing.T) {
 	}
 }
 
-
 func TestCounterVec(t *testing.T) {
 	var tests = []struct {
 		desc string
 		CounterOpts
+		labels              []string
 		registryVersion     *Version
 		expectedMetricCount int
 		expectedHelp        string
@@ -105,6 +105,7 @@ func TestCounterVec(t *testing.T) {
 				Subsystem: "subsystem",
 				Help:      "counter help",
 			},
+			labels:              []string{"label_a", "label_b"},
 			registryVersion:     MustParseGeneric("1.15.0"),
 			expectedMetricCount: 1,
 			expectedHelp:        "counter help",
@@ -118,6 +119,7 @@ func TestCounterVec(t *testing.T) {
 				Help:              "counter help",
 				DeprecatedVersion: MustParseGeneric("1.15.0"),
 			},
+			labels:              []string{"label_a", "label_b"},
 			registryVersion:     MustParseGeneric("1.15.0"),
 			expectedMetricCount: 1,
 			expectedHelp:        "(Deprecated since 1.15.0) counter help",
@@ -131,6 +133,7 @@ func TestCounterVec(t *testing.T) {
 				Help:              "counter help",
 				DeprecatedVersion: MustParseGeneric("1.14.0"),
 			},
+			labels:              []string{"label_a", "label_b"},
 			registryVersion:     MustParseGeneric("1.15.0"),
 			expectedMetricCount: 0,
 			expectedHelp:        "counter help",
@@ -140,9 +143,9 @@ func TestCounterVec(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.desc, func(t *testing.T) {
 			registry := NewKubeRegistry(test.registryVersion)
-			c := NewCounterVec(test.CounterOpts, []string{"a", "b"})
+			c := NewCounterVec(test.CounterOpts, test.labels)
 			registry.MustRegister(c)
-			c.WithLabelValues("aaa", "bbb").Inc()
+			c.WithLabelValues("1", "2").Inc()
 			ms, err := registry.Gather()
 
 			if len(ms) != test.expectedMetricCount {
@@ -158,17 +161,15 @@ func TestCounterVec(t *testing.T) {
 			}
 
 			// let's increment the counter and verify that the metric still works
-			c.WithLabelValues("a-label", "b-label").Inc()
-			c.WithLabelValues("a-label", "c-label").Inc()
+			c.WithLabelValues("1", "3").Inc()
+			c.WithLabelValues("2", "3").Inc()
 			ms, err = registry.Gather()
 			if err != nil {
 				t.Fatalf("Gather failed %v", err)
 			}
 			for _, mf := range ms {
-
 				if len(mf.GetMetric()) != 3 {
 					t.Errorf("Got %v metrics, wanted 2 as the count", len(mf.GetMetric()))
-
 				}
 			}
 		})

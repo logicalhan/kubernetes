@@ -10,7 +10,7 @@ import (
 type Deprecated bool
 
 const (
-	IsDeprecated Deprecated = true
+	IsDeprecated  Deprecated = true
 	NotDeprecated Deprecated = false
 )
 
@@ -39,6 +39,7 @@ type registerable struct {
 	self         KubeCollector
 }
 
+// Store a reference so that we can defer initialization of the metric
 func (r *registerable) init(self KubeCollector) {
 	r.self = self
 }
@@ -60,6 +61,12 @@ func (r *registerable) InitializeMetric(isDeprecated Deprecated) {
 	})
 }
 
+// no-op vecs for convenience
+var noopCounterVec = prometheus.CounterVec{}
+var noopHistogramVec = prometheus.HistogramVec{}
+var noopSummaryVec = prometheus.SummaryVec{}
+var noopGaugeVec = prometheus.GaugeVec{}
+
 // just use a convenience struct for all the no-ops
 var noop = noopMetric{}
 
@@ -74,8 +81,3 @@ func (noopMetric) Desc() *prometheus.Desc           { return nil }
 func (noopMetric) Write(*dto.Metric) error          { return nil }
 func (noopMetric) Describe(chan<- *prometheus.Desc) {}
 func (noopMetric) Collect(chan<- prometheus.Metric) {}
-
-var noopCounterVec = prometheus.CounterVec{}
-var noopHistogramVec = prometheus.HistogramVec{}
-var noopSummaryVec = prometheus.SummaryVec{}
-var noopGaugeVec = prometheus.GaugeVec{}
