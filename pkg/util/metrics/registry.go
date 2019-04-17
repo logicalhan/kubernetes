@@ -8,6 +8,7 @@ import (
 )
 
 var (
+	// todo: load the version dynamically at application boot.
 	DefaultGlobalRegistry = NewKubeRegistry(semver.MustParse("1.15.0"))
 )
 
@@ -19,6 +20,18 @@ type PromRegistry interface {
 type KubeRegistry struct {
 	registry PromRegistry
 	version  semver.Version
+}
+
+// Register registers a collectable metric, but it uses a global registry.
+func Register(c KubeCollector) error {
+	return DefaultGlobalRegistry.Register(c)
+}
+
+// MustRegister works like Register but registers any number of
+// Collectors and panics upon the first registration that causes an
+// error.
+func MustRegister(cs ...KubeCollector) {
+	DefaultGlobalRegistry.MustRegister(cs...)
 }
 
 func (kr *KubeRegistry) Register(c KubeCollector) error {
@@ -64,7 +77,6 @@ func (kr *KubeRegistry) Gather() ([]*dto.MetricFamily, error) {
 // NewRegistry creates a new vanilla Registry without any Collectors
 // pre-registered.
 func NewKubeRegistry(version semver.Version) *KubeRegistry {
-
 	return &KubeRegistry{
 		prometheus.NewRegistry(),
 		version,

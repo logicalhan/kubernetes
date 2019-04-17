@@ -5,13 +5,9 @@ import (
 	"testing"
 )
 
-var (
-	v115 = semver.MustParse("1.15.0")
-	v114 = semver.MustParse("1.14.0")
-)
-
 func TestSummary(t *testing.T) {
-
+	v115 := semver.MustParse("1.15.0")
+	v114 := semver.MustParse("1.14.0")
 	var tests = []struct {
 		desc string
 		SummaryOpts
@@ -100,6 +96,8 @@ func TestSummary(t *testing.T) {
 }
 
 func TestSummaryVec(t *testing.T) {
+	v115 := semver.MustParse("1.15.0")
+	v114 := semver.MustParse("1.14.0")
 	var tests = []struct {
 		desc string
 		SummaryOpts

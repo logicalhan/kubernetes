@@ -70,14 +70,14 @@ func (r *registerable) CreateMetric(isDeprecated Deprecated) {
 }
 
 // no-op vecs for convenience
-var noopCounterVec = prometheus.CounterVec{}
-var noopHistogramVec = prometheus.HistogramVec{}
-var noopSummaryVec = prometheus.SummaryVec{}
-var noopGaugeVec = prometheus.GaugeVec{}
-var noopObserverVec = noopObserverVector{}
+var noopCounterVec = &prometheus.CounterVec{}
+var noopHistogramVec = &prometheus.HistogramVec{}
+var noopSummaryVec = &prometheus.SummaryVec{}
+var noopGaugeVec = &prometheus.GaugeVec{}
+var noopObserverVec = &noopObserverVector{}
 
 // just use a convenience struct for all the no-ops
-var noop = noopMetric{}
+var noop = &noopMetric{}
 
 type noopMetric struct{}
 
@@ -93,9 +93,7 @@ func (noopMetric) Write(*dto.Metric) error          { return nil }
 func (noopMetric) Describe(chan<- *prometheus.Desc) {}
 func (noopMetric) Collect(chan<- prometheus.Metric) {}
 
-type noopObserverVector struct {
-	prometheus.ObserverVec
-}
+type noopObserverVector struct {}
 
 func (noopObserverVector) GetMetricWith(prometheus.Labels) (prometheus.Observer, error) {
 	return noop, nil

@@ -167,7 +167,7 @@ func (v *CounterVec) With(labels prometheus.Labels) prometheus.Counter {
 
 func (v *CounterVec) CurryWith(labels prometheus.Labels) (*prometheus.CounterVec, error) {
 	if !v.IsRegistered() {
-		return &noopCounterVec, nil
+		return noopCounterVec, nil
 	}
 	vec, err := v.CounterVec.CurryWith(labels)
 	if vec != nil {
@@ -178,7 +178,7 @@ func (v *CounterVec) CurryWith(labels prometheus.Labels) (*prometheus.CounterVec
 
 func (v *CounterVec) MustCurryWith(labels prometheus.Labels) *prometheus.CounterVec {
 	if !v.IsRegistered() {
-		return &noopCounterVec
+		return noopCounterVec
 	}
 	vec, err := v.CurryWith(labels)
 	if err != nil {

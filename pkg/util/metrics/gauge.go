@@ -172,7 +172,7 @@ func (v *GaugeVec) With(labels prometheus.Labels) prometheus.Gauge {
 
 func (v *GaugeVec) CurryWith(labels prometheus.Labels) (*prometheus.GaugeVec, error) {
 	if !v.IsRegistered() {
-		return &noopGaugeVec, nil
+		return noopGaugeVec, nil
 	}
 	vec, err := v.GaugeVec.CurryWith(labels)
 	if vec != nil {
@@ -183,7 +183,7 @@ func (v *GaugeVec) CurryWith(labels prometheus.Labels) (*prometheus.GaugeVec, er
 
 func (v *GaugeVec) MustCurryWith(labels prometheus.Labels) *prometheus.GaugeVec {
 	if !v.IsRegistered() {
-		return &noopGaugeVec
+		return noopGaugeVec
 	}
 	vec, err := v.CurryWith(labels)
 	if err != nil {
