@@ -55,7 +55,9 @@ func (r *registerable) IsRegistered() bool {
 }
 
 // Defer initialization of metric until we know if we actually need to
-// register the thing.
+// register the thing. This wrapper just allows us to consolidate the
+// syncOnce logic in a single spot and toggle the flag, since this
+// behavior will be consistent across metrics.
 func (r *registerable) CreateMetric(isDeprecated Deprecated) {
 	r.registerOnce.Do(func() {
 		r.isRegistered = true

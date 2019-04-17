@@ -21,8 +21,17 @@ type KubeRegistry struct {
 	version  semver.Version
 }
 
-func (kr *KubeRegistry) Register(collector KubeCollector) error {
-	return kr.registry.Register(collector)
+func (kr *KubeRegistry) Register(c KubeCollector) error {
+	if c.GetDeprecatedVersion() != nil && c.GetDeprecatedVersion().LT(kr.version) {
+		klog.Warningf("This metric has been deprecated for more than one release, hiding.")
+	}
+
+	if c.GetDeprecatedVersion() != nil && c.GetDeprecatedVersion().EQ(kr.version) {
+		c.CreateMetric(IsDeprecated)
+	} else {
+		c.CreateMetric(NotDeprecated)
+	}
+	return kr.registry.Register(c)
 }
 
 func (kr *KubeRegistry) MustRegister(cs ...KubeCollector) {
