@@ -54,6 +54,15 @@ type KubeCounter interface {
 	Add(float64)
 }
 
+type KubeGauge interface {
+	Set(float64)
+}
+
+// KubeObserver captures individual observations.
+type KubeObserver interface {
+	Observe(float64)
+}
+
 type KubeCounterVec interface {
 	WithLabelValues(...string) KubeCounter
 	With(prometheus.Labels) KubeCounter
