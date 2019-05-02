@@ -333,7 +333,7 @@ func main() {
 	totalLegacyTests = 0
 	missingComments = 0
 	for _, arg := range flag.Args() {
-		filepath.Walk(arg, func(path string, info os.FileInfo, err error) error {
+		_ = filepath.Walk(arg, func(path string, info os.FileInfo, err error) error {
 			if err != nil {
 				return err
 			}
