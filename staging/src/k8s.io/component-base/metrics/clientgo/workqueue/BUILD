@@ -1,20 +1,16 @@
-package(default_visibility = ["//visibility:public"])
-
-load(
-    "@io_bazel_rules_go//go:def.bzl",
-    "go_library",
-)
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
 
 go_library(
     name = "go_default_library",
     srcs = ["metrics.go"],
-    importmap = "k8s.io/kubernetes/vendor/k8s.io/component-base/metrics/shared/restclient",
+    importmap = "k8s.io/kubernetes/vendor/k8s.io/component-base/metrics/clientgo/workqueue",
+    importpath = "k8s.io/component-base/metrics/clientgo/workqueue",
+    visibility = ["//visibility:public"],
     deps = [
-        "//staging/src/k8s.io/apimachinery/pkg/version:go_default_library",
+        "//staging/src/k8s.io/client-go/util/workqueue:go_default_library",
         "//staging/src/k8s.io/component-base/metrics:go_default_library",
         "//vendor/github.com/prometheus/client_golang/prometheus:go_default_library",
-        "//vendor/github.com/prometheus/client_golang/prometheus/promhttp:go_default_library",
-        "//vendor/github.com/prometheus/client_model/go:go_default_library",
+        "//vendor/k8s.io/klog:go_default_library",
     ],
 )
 
@@ -29,4 +25,5 @@ filegroup(
     name = "all-srcs",
     srcs = [":package-srcs"],
     tags = ["automanaged"],
+    visibility = ["//visibility:public"],
 )
