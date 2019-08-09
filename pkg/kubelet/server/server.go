@@ -21,6 +21,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"io"
+	"k8s.io/kubernetes/pkg/version"
 	"net"
 	"net/http"
 	"net/http/pprof"
@@ -324,8 +325,8 @@ func (s *Server) InstallDefaultHandlers(enableCAdvisorJSONEndpoints bool) {
 	)
 
 	// prober metrics are exposed under a different endpoint
-	p := prometheus.NewRegistry()
-	compbasemetrics.RegisterProcessStartTime(p)
+
+	p := compbasemetrics.NewKubeRegistry(version.Get())
 	p.MustRegister(prober.ProberResults)
 	s.restfulCont.Handle(proberMetricsPath,
 		promhttp.HandlerFor(p, promhttp.HandlerOpts{ErrorHandling: promhttp.ContinueOnError}),

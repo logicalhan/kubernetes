@@ -120,8 +120,10 @@ func (kr *kubeRegistry) Gather() ([]*dto.MetricFamily, error) {
 // NewKubeRegistry creates a new vanilla Registry without any Collectors
 // pre-registered.
 func NewKubeRegistry(v apimachineryversion.Info) KubeRegistry {
+	r := prometheus.NewRegistry()
+	RegisterProcessStartTime(r)
 	return &kubeRegistry{
-		PromRegistry: prometheus.NewRegistry(),
+		PromRegistry: r,
 		version:      parseVersion(v),
 	}
 }
