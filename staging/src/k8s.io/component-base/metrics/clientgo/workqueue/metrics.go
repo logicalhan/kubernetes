@@ -17,12 +17,8 @@ limitations under the License.
 package workqueue
 
 import (
-	"fmt"
-	"k8s.io/client-go/util/workqueue"
-	"k8s.io/klog"
-	"sync"
-
 	"github.com/prometheus/client_golang/prometheus"
+	"k8s.io/client-go/util/workqueue"
 	k8smetrics "k8s.io/component-base/metrics"
 )
 
@@ -90,12 +86,6 @@ var (
 	metrics = []k8smetrics.Registerable{
 		depth, adds, latency, workDuration, unfinished, longestRunningProcessor, retries,
 	}
-	// TODO: remove this in 1.17. These metrics are broken but they are also deprecated
-	// let's actually get them to work correctly for one release before we yank them completely.
-	mtx       sync.RWMutex // Protects metrics.
-	gauges    = make(map[string]k8smetrics.GaugeMetric)
-	counters  = make(map[string]workqueue.CounterMetric)
-	summaries = make(map[string]workqueue.SummaryMetric)
 )
 
 type prometheusMetricsProvider struct {
@@ -134,101 +124,4 @@ func (prometheusMetricsProvider) NewLongestRunningProcessorSecondsMetric(name st
 
 func (prometheusMetricsProvider) NewRetriesMetric(name string) workqueue.CounterMetric {
 	return retries.WithLabelValues(name)
-}
-
-func getOrCreateGaugeMetric(subsystem string, name string, help string, registry k8smetrics.KubeRegistry) k8smetrics.GaugeMetric {
-	mtx.RLock()
-	gm, ok := gauges[subsystem+"_"+name]
-	mtx.RUnlock()
-	if ok {
-		return gm
-	}
-	gauge := k8smetrics.NewGauge(&k8smetrics.GaugeOpts{
-		Subsystem: subsystem,
-		Name:      name,
-		Help:      fmt.Sprintf("(Deprecated) Current %s of workqueue: %s", name, subsystem),
-	})
-	mtx.Lock()
-	gauges[subsystem+"_"+name] = gauge
-	mtx.Unlock()
-	if err := registry.Register(depth); err != nil {
-		klog.Errorf("failed to register %s metric %v: %v", name, subsystem, err)
-	}
-	return gauge
-}
-
-func getOrCreateCounterMetric(subsystem string, name string, registry k8smetrics.KubeRegistry) workqueue.CounterMetric {
-	mtx.RLock()
-	c, ok := counters[subsystem+"_"+name]
-	mtx.RUnlock()
-	if ok {
-		return c
-	}
-	counter := k8smetrics.NewCounter(&k8smetrics.CounterOpts{
-		Subsystem: subsystem,
-		Name:      name,
-		Help:      fmt.Sprintf("(Deprecated) Total number of %s handled by workqueue: %s", name, subsystem),
-	})
-	mtx.Lock()
-	counters[subsystem+"_"+name] = counter
-	mtx.Unlock()
-	if err := registry.Register(depth); err != nil {
-		klog.Errorf("failed to register %s metric %v: %v", name, subsystem, err)
-	}
-	return counter
-}
-
-func getOrCreateSummaryMetric(subsystem string, name string, help string, registry k8smetrics.KubeRegistry) workqueue.SummaryMetric {
-	mtx.RLock()
-	s, ok := summaries[subsystem+"_"+name]
-	mtx.RUnlock()
-	if ok {
-		return s
-	}
-	summary := k8smetrics.NewSummary(&k8smetrics.SummaryOpts{
-		Subsystem: subsystem,
-		Name:      name,
-		Help:      help,
-	})
-	mtx.Lock()
-	summaries[subsystem+"_"+name] = summary
-	mtx.Unlock()
-	if err := registry.Register(depth); err != nil {
-		klog.Errorf("failed to register %s metric %v: %v", name, subsystem, err)
-	}
-	return summary
-}
-
-func (p *prometheusMetricsProvider) NewDeprecatedDepthMetric(name string) workqueue.GaugeMetric {
-	return getOrCreateGaugeMetric(name, "depth", fmt.Sprintf("(Deprecated) Current depth of workqueue: %s", name), p.registry)
-}
-
-func (p *prometheusMetricsProvider) NewDeprecatedAddsMetric(name string) workqueue.CounterMetric {
-	return getOrCreateCounterMetric(name, "adds", p.registry)
-}
-
-func (p *prometheusMetricsProvider) NewDeprecatedLatencyMetric(name string) workqueue.SummaryMetric {
-	return getOrCreateSummaryMetric(name, "queue_latency", "(Deprecated) How long an item stays in workqueue"+name+" before being requested.", p.registry)
-}
-
-func (p *prometheusMetricsProvider) NewDeprecatedWorkDurationMetric(name string) workqueue.SummaryMetric {
-	return getOrCreateSummaryMetric(name, "work_duration", "(Deprecated) How long processing an item from workqueue"+name+" takes.", p.registry)
-}
-
-func (p *prometheusMetricsProvider) NewDeprecatedUnfinishedWorkSecondsMetric(name string) workqueue.SettableGaugeMetric {
-	help := "(Deprecated) How many seconds of work " + name + " has done that " +
-		"is in progress and hasn't been observed by work_duration. Large " +
-		"values indicate stuck threads. One can deduce the number of stuck " +
-		"threads by observing the rate at which this increases."
-	return getOrCreateGaugeMetric(name, "unfinished_work_seconds", help, p.registry)
-}
-
-func (p *prometheusMetricsProvider) NewDeprecatedLongestRunningProcessorMicrosecondsMetric(name string) workqueue.SettableGaugeMetric {
-	help := "(Deprecated) How many microseconds has the longest running " +
-		"processor for " + name + " been running."
-	return getOrCreateGaugeMetric(name, "longest_running_processor_microseconds", help, p.registry)
-}
-
-func (p *prometheusMetricsProvider) NewDeprecatedRetriesMetric(name string) workqueue.CounterMetric {
-	return getOrCreateCounterMetric(name, "retries", p.registry)
 }
