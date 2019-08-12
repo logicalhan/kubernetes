@@ -3,13 +3,12 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 go_library(
     name = "go_default_library",
     srcs = ["metrics.go"],
-    importmap = "k8s.io/kubernetes/vendor/k8s.io/component-base/metrics/clientgo/workqueue",
-    importpath = "k8s.io/component-base/metrics/clientgo/workqueue",
+    importmap = "k8s.io/kubernetes/vendor/k8s.io/component-base/metrics/prometheus/clientgo/leaderelection",
+    importpath = "k8s.io/component-base/metrics/prometheus/clientgo/leaderelection",
     visibility = ["//visibility:public"],
     deps = [
-        "//staging/src/k8s.io/client-go/util/workqueue:go_default_library",
+        "//staging/src/k8s.io/client-go/tools/leaderelection:go_default_library",
         "//staging/src/k8s.io/component-base/metrics:go_default_library",
-        "//vendor/github.com/prometheus/client_golang/prometheus:go_default_library",
     ],
 )
 

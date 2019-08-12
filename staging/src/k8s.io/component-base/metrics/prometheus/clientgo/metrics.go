@@ -18,11 +18,12 @@ package clientgo
 
 import (
 	k8smetrics "k8s.io/component-base/metrics"
-	"k8s.io/component-base/metrics/clientgo/leaderelection"
-	"k8s.io/component-base/metrics/clientgo/restclient"
-	"k8s.io/component-base/metrics/clientgo/workqueue"
+	"k8s.io/component-base/metrics/prometheus/clientgo/leaderelection"
+	"k8s.io/component-base/metrics/prometheus/restclient"
+	"k8s.io/component-base/metrics/prometheus/workqueue"
 )
 
+// RegisterMetrics registers all the dependency injected client-go metrics to a KubeRegistry
 func RegisterMetrics(registry k8smetrics.KubeRegistry) {
 	leaderelection.RegisterMetric(registry)
 	workqueue.RegisterMetrics(registry)

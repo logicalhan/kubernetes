@@ -32,7 +32,8 @@ var (
 	}, []string{"name"})
 )
 
-func RegisterMetric(registry k8smetrics.KubeRegistry) {
+// RegisterMetrics registers the metrics in this package to a KubeRegistry
+func RegisterMetrics(registry k8smetrics.KubeRegistry) {
 	registry.MustRegister(leaderGauge)
 	leaderelection.SetProvider(prometheusMetricsProvider{})
 }

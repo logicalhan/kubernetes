@@ -14,8 +14,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Package prometheus creates and registers prometheus metrics with
-// rest clients. To use this package, you just have to import it.
 package restclient
 
 import (
@@ -59,6 +57,7 @@ var (
 	)
 )
 
+// RegisterMetrics registers the metrics in this package to a KubeRegistry
 func RegisterMetrics(registry k8smetrics.KubeRegistry) {
 	registry.MustRegister(requestLatency)
 	registry.MustRegister(deprecatedRequestLatency)

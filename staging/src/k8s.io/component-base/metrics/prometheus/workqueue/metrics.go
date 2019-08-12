@@ -63,6 +63,7 @@ var (
 		Help:      "How long in seconds processing an item from workqueue takes.",
 		Buckets:   prometheus.ExponentialBuckets(10e-9, 10, 10),
 	}, []string{"name"})
+
 	unfinished = k8smetrics.NewGaugeVec(&k8smetrics.GaugeOpts{
 		Subsystem: WorkQueueSubsystem,
 		Name:      UnfinishedWorkKey,
@@ -71,12 +72,14 @@ var (
 			"values indicate stuck threads. One can deduce the number of stuck " +
 			"threads by observing the rate at which this increases.",
 	}, []string{"name"})
+
 	longestRunningProcessor = k8smetrics.NewGaugeVec(&k8smetrics.GaugeOpts{
 		Subsystem: WorkQueueSubsystem,
 		Name:      LongestRunningProcessorKey,
 		Help: "How many seconds has the longest running " +
 			"processor for workqueue been running.",
 	}, []string{"name"})
+
 	retries = k8smetrics.NewCounterVec(&k8smetrics.CounterOpts{
 		Subsystem: WorkQueueSubsystem,
 		Name:      RetriesKey,
@@ -92,6 +95,7 @@ type prometheusMetricsProvider struct {
 	registry k8smetrics.KubeRegistry
 }
 
+// RegisterMetrics registers the metrics in this package to a KubeRegistry
 func RegisterMetrics(registry k8smetrics.KubeRegistry) {
 	for _, m := range metrics {
 		registry.MustRegister(m)
