@@ -10,8 +10,8 @@ go_library(
     deps = [
         "//staging/src/k8s.io/component-base/metrics:go_default_library",
         "//staging/src/k8s.io/component-base/metrics/prometheus/clientgo/leaderelection:go_default_library",
-        "//vendor/k8s.io/component-base/metrics/prometheus/clientgo/restclient:go_default_library",
-        "//vendor/k8s.io/component-base/metrics/prometheus/clientgo/workqueue:go_default_library",
+        "//staging/src/k8s.io/component-base/metrics/prometheus/restclient:go_default_library",
+        "//staging/src/k8s.io/component-base/metrics/prometheus/workqueue:go_default_library",
     ],
 )
 
