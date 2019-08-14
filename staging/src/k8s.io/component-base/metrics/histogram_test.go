@@ -78,7 +78,7 @@ func TestHistogram(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.desc, func(t *testing.T) {
-			registry := NewKubeRegistry(apimachineryversion.Info{
+			registry := newKubeRegistry(apimachineryversion.Info{
 				Major:      "1",
 				Minor:      "15",
 				GitVersion: "v1.15.0-alpha-1.12345",
@@ -179,7 +179,7 @@ func TestHistogramVec(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.desc, func(t *testing.T) {
-			registry := NewKubeRegistry(apimachineryversion.Info{
+			registry := newKubeRegistry(apimachineryversion.Info{
 				Major:      "1",
 				Minor:      "15",
 				GitVersion: "v1.15.0-alpha-1.12345",
