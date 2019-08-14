@@ -32,10 +32,14 @@ var processStartTime = prometheus.NewGaugeVec(
 	[]string{},
 )
 
+type Registerer interface {
+	Register(prometheus.Collector) error
+}
+
 // RegisterProcessStartTime registers the process_start_time_seconds to
 // a prometheus registry. This metric needs to be included to ensure counter
 // data fidelity.
-func RegisterProcessStartTime(registerer prometheus.Registerer) error {
+func RegisterProcessStartTime(registerer Registerer) error {
 	start, err := getProcessStart()
 	if err != nil {
 		klog.Errorf("Could not get process start time, %v", err)

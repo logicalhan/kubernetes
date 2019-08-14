@@ -32,7 +32,7 @@ import (
 	"strings"
 	"time"
 
-	restful "github.com/emicklei/go-restful"
+	"github.com/emicklei/go-restful"
 	cadvisormetrics "github.com/google/cadvisor/container"
 	cadvisorapi "github.com/google/cadvisor/info/v1"
 	"github.com/google/cadvisor/metrics"
@@ -324,7 +324,8 @@ func (s *Server) InstallDefaultHandlers(enableCAdvisorJSONEndpoints bool) {
 	)
 
 	// prober metrics are exposed under a different endpoint
-	p := prometheus.NewRegistry()
+
+	p := compbasemetrics.NewKubeRegistry()
 	compbasemetrics.RegisterProcessStartTime(p)
 	p.MustRegister(prober.ProberResults)
 	s.restfulCont.Handle(proberMetricsPath,
