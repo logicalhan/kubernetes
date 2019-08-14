@@ -20,6 +20,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"k8s.io/client-go/util/workqueue"
 	k8smetrics "k8s.io/component-base/metrics"
+	"k8s.io/component-base/metrics/legacyregistry"
 )
 
 // Package prometheus sets the workqueue DefaultMetricsFactory to produce
@@ -95,11 +96,11 @@ type prometheusMetricsProvider struct {
 	registry k8smetrics.KubeRegistry
 }
 
-// RegisterMetrics registers the metrics in this package to a KubeRegistry
-func RegisterMetrics(registry k8smetrics.KubeRegistry) {
+func init() {
 	for _, m := range metrics {
-		registry.MustRegister(m)
+		legacyregistry.MustRegister(m)
 	}
+	workqueue.SetProvider(prometheusMetricsProvider{})
 }
 
 func (prometheusMetricsProvider) NewDepthMetric(name string) workqueue.GaugeMetric {

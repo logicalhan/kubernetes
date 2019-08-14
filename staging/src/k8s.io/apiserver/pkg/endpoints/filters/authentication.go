@@ -18,10 +18,11 @@ package filters
 
 import (
 	"errors"
+	"k8s.io/component-base/metrics"
+	"k8s.io/component-base/metrics/legacyregistry"
 	"net/http"
 	"strings"
 
-	"github.com/prometheus/client_golang/prometheus"
 	"k8s.io/klog"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -33,17 +34,18 @@ import (
 )
 
 var (
-	authenticatedUserCounter = prometheus.NewCounterVec(
-		prometheus.CounterOpts{
-			Name: "authenticated_user_requests",
-			Help: "Counter of authenticated requests broken out by username.",
+	authenticatedUserCounter = metrics.NewCounterVec(
+		&metrics.CounterOpts{
+			Name:           "authenticated_user_requests",
+			Help:           "Counter of authenticated requests broken out by username.",
+			StabilityLevel: metrics.ALPHA,
 		},
 		[]string{"username"},
 	)
 )
 
 func init() {
-	prometheus.MustRegister(authenticatedUserCounter)
+	legacyregistry.MustRegister(authenticatedUserCounter)
 }
 
 // WithAuthentication creates an http handler that tries to authenticate the given request as a user, and then

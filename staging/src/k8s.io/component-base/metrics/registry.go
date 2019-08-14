@@ -150,7 +150,6 @@ func newKubeRegistry(v apimachineryversion.Info) *kubeRegistry {
 
 func registerMetadataMetrics(r *kubeRegistry) {
 	RegisterBuildInfo(r)
-	RegisterProcessStartTime(r.PromRegistry)
 }
 
 // NewKubeRegistry creates a new vanilla Registry without any Collectors

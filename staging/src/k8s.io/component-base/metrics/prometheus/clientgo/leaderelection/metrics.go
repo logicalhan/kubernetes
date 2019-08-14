@@ -18,6 +18,7 @@ package leaderelection
 
 import (
 	"k8s.io/client-go/tools/leaderelection"
+	"k8s.io/component-base/metrics/legacyregistry"
 
 	k8smetrics "k8s.io/component-base/metrics"
 )
@@ -32,9 +33,8 @@ var (
 	}, []string{"name"})
 )
 
-// RegisterMetrics registers the metrics in this package to a KubeRegistry
-func RegisterMetrics(registry k8smetrics.KubeRegistry) {
-	registry.MustRegister(leaderGauge)
+func init() {
+	legacyregistry.MustRegister(leaderGauge)
 	leaderelection.SetProvider(prometheusMetricsProvider{})
 }
 

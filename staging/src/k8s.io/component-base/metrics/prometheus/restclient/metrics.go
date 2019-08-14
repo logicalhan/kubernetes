@@ -17,6 +17,7 @@ limitations under the License.
 package restclient
 
 import (
+	"k8s.io/component-base/metrics/legacyregistry"
 	"net/url"
 	"time"
 
@@ -57,11 +58,10 @@ var (
 	)
 )
 
-// RegisterMetrics registers the metrics in this package to a KubeRegistry
-func RegisterMetrics(registry k8smetrics.KubeRegistry) {
-	registry.MustRegister(requestLatency)
-	registry.MustRegister(deprecatedRequestLatency)
-	registry.MustRegister(requestResult)
+func init() {
+	legacyregistry.MustRegister(requestLatency)
+	legacyregistry.MustRegister(deprecatedRequestLatency)
+	legacyregistry.MustRegister(requestResult)
 	metrics.Register(&latencyAdapter{m: requestLatency, dm: deprecatedRequestLatency}, &resultAdapter{requestResult})
 }
 

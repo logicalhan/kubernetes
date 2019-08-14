@@ -18,13 +18,14 @@ package gce
 
 import (
 	"encoding/json"
+	"k8s.io/component-base/metrics"
+	"k8s.io/component-base/metrics/legacyregistry"
 	"net/http"
 	"strings"
 	"time"
 
 	"k8s.io/client-go/util/flowcontrol"
 
-	"github.com/prometheus/client_golang/prometheus"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/googleapi"
@@ -38,23 +39,25 @@ const (
 )
 
 var (
-	getTokenCounter = prometheus.NewCounter(
-		prometheus.CounterOpts{
-			Name: "get_token_count",
-			Help: "Counter of total Token() requests to the alternate token source",
+	getTokenCounter = metrics.NewCounter(
+		&metrics.CounterOpts{
+			Name:           "get_token_count",
+			Help:           "Counter of total Token() requests to the alternate token source",
+			StabilityLevel: metrics.ALPHA,
 		},
 	)
-	getTokenFailCounter = prometheus.NewCounter(
-		prometheus.CounterOpts{
-			Name: "get_token_fail_count",
-			Help: "Counter of failed Token() requests to the alternate token source",
+	getTokenFailCounter = metrics.NewCounter(
+		&metrics.CounterOpts{
+			Name:           "get_token_fail_count",
+			Help:           "Counter of failed Token() requests to the alternate token source",
+			StabilityLevel: metrics.ALPHA,
 		},
 	)
 )
 
 func init() {
-	prometheus.MustRegister(getTokenCounter)
-	prometheus.MustRegister(getTokenFailCounter)
+	legacyregistry.MustRegister(getTokenCounter)
+	legacyregistry.MustRegister(getTokenFailCounter)
 }
 
 // AltTokenSource is the structure holding the data for the functionality needed to generates tokens

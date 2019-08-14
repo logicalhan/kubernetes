@@ -18,6 +18,7 @@ package routes
 
 import (
 	"io"
+	"k8s.io/component-base/metrics/legacyregistry"
 	"net/http"
 
 	apimetrics "k8s.io/apiserver/pkg/endpoints/metrics"
@@ -34,6 +35,7 @@ type DefaultMetrics struct{}
 func (m DefaultMetrics) Install(c *mux.PathRecorderMux) {
 	register()
 	c.Handle("/metrics", prometheus.Handler())
+	c.Handle("/migrated-metrics", legacyregistry.Handler())
 }
 
 // MetricsWithReset install the prometheus metrics handler extended with support for the DELETE method
@@ -53,6 +55,8 @@ func (m MetricsWithReset) Install(c *mux.PathRecorderMux) {
 		}
 		defaultMetricsHandler(w, req)
 	})
+
+	c.Handle("/migrated-metrics", legacyregistry.Handler())
 }
 
 // register apiserver and etcd metrics
