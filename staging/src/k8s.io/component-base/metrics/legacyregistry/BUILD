@@ -4,7 +4,10 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 
 go_library(
     name = "go_default_library",
-    srcs = ["registry.go"],
+    srcs = [
+        "handler.go",
+        "registry.go",
+    ],
     importmap = "k8s.io/kubernetes/vendor/k8s.io/component-base/metrics/legacyregistry",
     importpath = "k8s.io/component-base/metrics/legacyregistry",
     deps = [
