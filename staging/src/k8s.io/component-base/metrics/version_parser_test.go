@@ -44,7 +44,7 @@ func TestVersionParsing(t *testing.T) {
 			version := apimachineryversion.Info{
 				GitVersion: test.versionString,
 			}
-			parsedV := parseVersion(version)
+			parsedV := ToSemver(version)
 			if test.expectedVersion != parsedV.String() {
 				t.Errorf("Got %v, wanted %v", parsedV.String(), test.expectedVersion)
 			}

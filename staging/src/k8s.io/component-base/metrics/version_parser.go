@@ -38,7 +38,10 @@ func parseSemver(s string) *semver.Version {
 	}
 	return nil
 }
-func parseVersion(ver apimachineryversion.Info) semver.Version {
+
+// ToSemver converts a apimachineryversion.Info object into a semver.Version object
+// and panics if it cannot do so successfully.
+func ToSemver(ver apimachineryversion.Info) semver.Version {
 	matches := versionRe.FindAllStringSubmatch(ver.String(), -1)
 
 	if len(matches) != 1 {

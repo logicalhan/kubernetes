@@ -18,15 +18,17 @@ package metrics
 
 import (
 	"fmt"
-	"k8s.io/component-base/metrics"
-	"k8s.io/component-base/metrics/legacyregistry"
 	"sync"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
+
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	utilfeature "k8s.io/apiserver/pkg/util/feature"
+	"k8s.io/component-base/metrics"
+	"k8s.io/component-base/metrics/legacyregistry"
+	"k8s.io/component-base/version"
 	"k8s.io/klog"
 	"k8s.io/kubernetes/pkg/features"
 	kubecontainer "k8s.io/kubernetes/pkg/kubelet/container"
@@ -484,6 +486,45 @@ var (
 )
 
 var registerMetrics sync.Once
+
+func init() {
+	// force initialization of these metrics at package load.
+	v := metrics.ToSemver(version.Get())
+	NodeName.Create(&v)
+	PodWorkerDuration.Create(&v)
+	PodStartDuration.Create(&v)
+	CgroupManagerDuration.Create(&v)
+	PodWorkerStartDuration.Create(&v)
+	ContainersPerPodCount.Create(&v)
+	PLEGRelistDuration.Create(&v)
+	PLEGDiscardEvents.Create(&v)
+	PLEGRelistInterval.Create(&v)
+	RuntimeOperations.Create(&v)
+	RuntimeOperationsDuration.Create(&v)
+	RuntimeOperationsErrors.Create(&v)
+	Evictions.Create(&v)
+	EvictionStatsAge.Create(&v)
+	DevicePluginRegistrationCount.Create(&v)
+	DevicePluginAllocationDuration.Create(&v)
+	DeprecatedPodWorkerLatency.Create(&v)
+	DeprecatedPodStartLatency.Create(&v)
+	DeprecatedCgroupManagerLatency.Create(&v)
+	DeprecatedPodWorkerStartLatency.Create(&v)
+	DeprecatedPLEGRelistLatency.Create(&v)
+	DeprecatedPLEGRelistInterval.Create(&v)
+	DeprecatedRuntimeOperations.Create(&v)
+	DeprecatedRuntimeOperationsLatency.Create(&v)
+	DeprecatedRuntimeOperationsErrors.Create(&v)
+	DeprecatedEvictionStatsAge.Create(&v)
+	DeprecatedDevicePluginRegistrationCount.Create(&v)
+	DeprecatedDevicePluginAllocationLatency.Create(&v)
+	RunningContainerCount.Create(&v)
+	RunningPodCount.Create(&v)
+	AssignedConfig.Create(&v)
+	ActiveConfig.Create(&v)
+	LastKnownGoodConfig.Create(&v)
+	ConfigError.Create(&v)
+}
 
 // Register registers all metrics.
 func Register(containerCache kubecontainer.RuntimeCache, collectors ...prometheus.Collector) {

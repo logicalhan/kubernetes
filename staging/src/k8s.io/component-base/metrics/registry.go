@@ -143,7 +143,7 @@ func (kr *kubeRegistry) Gather() ([]*dto.MetricFamily, error) {
 func newKubeRegistry(v apimachineryversion.Info) *kubeRegistry {
 	r := &kubeRegistry{
 		PromRegistry: prometheus.NewRegistry(),
-		version:      parseVersion(v),
+		version:      ToSemver(v),
 	}
 	return r
 }
