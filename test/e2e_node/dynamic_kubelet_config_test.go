@@ -1166,6 +1166,7 @@ func (tc *nodeConfigTestCase) checkConfigMetrics(f *framework.Framework) {
 		lastKnownGoodConfigKey: lastKnownGoodSamples,
 		configErrorKey:         errorSamples,
 	})
+	
 	// wait for expected metrics to appear
 	gomega.Eventually(func() error {
 		actual, err := getKubeletMetrics(sets.NewString(
@@ -1176,6 +1177,9 @@ func (tc *nodeConfigTestCase) checkConfigMetrics(f *framework.Framework) {
 		))
 		if err != nil {
 			return err
+		}
+		if len(actual) != 4 {
+			return nil
 		}
 		// clear timestamps from actual, so DeepEqual is time-invariant
 		for _, samples := range actual {
