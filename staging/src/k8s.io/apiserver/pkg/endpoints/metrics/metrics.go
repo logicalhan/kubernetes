@@ -158,6 +158,16 @@ var (
 		},
 		[]string{"verb", "group", "version", "resource", "subresource", "scope", "component", "code"},
 	)
+
+	deprecatedRequestTotal = compbasemetrics.NewCounterVec(
+		&compbasemetrics.CounterOpts{
+			Name:           "apiserver_deprecated_requests_total",
+			Help:           "Number of requests made against deprecated APIs",
+			StabilityLevel: compbasemetrics.ALPHA,
+		},
+		[]string{"verb", "group", "version", "resource", "subresource", "scope", "sunset_version"},
+	)
+
 	kubectlExeRegexp = regexp.MustCompile(`^.*((?i:kubectl\.exe))`)
 
 	metrics = []resettableCollector{
@@ -250,12 +260,19 @@ func RecordLongRunning(req *http.Request, requestInfo *request.RequestInfo, comp
 	fn()
 }
 
+func isDeprecated() bool {
+	return false
+}
+
 // MonitorRequest handles standard transformations for client and the reported verb and then invokes Monitor to record
 // a request. verb must be uppercase to be backwards compatible with existing monitoring tooling.
 func MonitorRequest(req *http.Request, verb, group, version, resource, subresource, scope, component, contentType string, httpCode, respSize int, elapsed time.Duration) {
 	reportedVerb := cleanVerb(verb, req)
 	dryRun := cleanDryRun(req.URL)
 	elapsedSeconds := elapsed.Seconds()
+	if isDeprecated() {
+		deprecatedRequestTotal.WithLabelValues(reportedVerb, group, version, resource, subresource, scope, "") // the last parameter is the version the api will disappear
+	}
 	requestCounter.WithLabelValues(reportedVerb, dryRun, group, version, resource, subresource, scope, component, contentType, codeToString(httpCode)).Inc()
 	requestLatencies.WithLabelValues(reportedVerb, dryRun, group, version, resource, subresource, scope, component).Observe(elapsedSeconds)
 	// We are only interested in response sizes of read requests.
