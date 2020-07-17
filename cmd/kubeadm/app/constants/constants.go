@@ -168,12 +168,19 @@ const (
 	SystemPrivilegedGroup = "system:masters"
 	// NodesGroup defines the well-known group for all nodes.
 	NodesGroup = "system:nodes"
+
 	// NodesUserPrefix defines the user name prefix as requested by the Node authorizer.
 	NodesUserPrefix = "system:node:"
 	// NodesClusterRoleBinding defines the well-known ClusterRoleBinding which binds the too permissive system:node
 	// ClusterRole to the system:nodes group. Since kubeadm is using the Node Authorizer, this ClusterRoleBinding's
 	// system:nodes group subject is removed if present.
 	NodesClusterRoleBinding = "system:node"
+	// MetricViewersGroup defines the well-known group for read access to the metrics api.
+	MetricViewersGroup = "system:metric-viewers"
+	// MetricViewersClusterRoleBinding defines the binding between the system:metrics-viewer ClusterRole
+	// to the system:metrics-viewers group. Since kubeadm is using the Node Authorizer, this ClusterRoleBinding's
+	// system:nodes group subject is removed if present.
+	MetricViewersClusterRoleBinding = "system:metrics-viewer"
 
 	// APICallRetryInterval defines how long kubeadm should wait before retrying a failed API operation
 	APICallRetryInterval = 500 * time.Millisecond

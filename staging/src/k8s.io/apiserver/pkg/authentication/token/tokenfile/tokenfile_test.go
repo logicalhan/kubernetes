@@ -28,13 +28,13 @@ import (
 
 func TestTokenFile(t *testing.T) {
 	auth, err := newWithContents(t, `
-token1,user1,uid1
-token2,user2,uid2
-token3,user3,uid3,"group1,group2"
-token4,user4,uid4,"group2"
-token5,user5,uid5,group5
-token6,user6,uid6,group5,otherdata
-token7,user7,uid7,"group1,group2",otherdata
+token1,admin,admin,system:masters
+token2,system:kube-controller-manager,uid:system:kube-controller-manager
+token3,system:kube-scheduler,uid:system:kube-scheduler
+token4,cluster-autoscaler,uid:cluster-autoscaler
+token5,system:kube-proxy,uid:kube_proxy
+token6,system:node-problem-detector,uid:node-problem-detector
+token7,system:pdcsi-controller,uid:system:pdcsi-controller,"blah,vlah"
 `)
 	if err != nil {
 		t.Fatalf("unable to read tokenfile: %v", err)
@@ -51,6 +51,7 @@ token7,user7,uid7,"group1,group2",otherdata
 			User:  &user.DefaultInfo{Name: "user1", UID: "uid1"},
 			Ok:    true,
 		},
+
 		{
 			Token: "token2",
 			User:  &user.DefaultInfo{Name: "user2", UID: "uid2"},
@@ -86,24 +87,26 @@ token7,user7,uid7,"group1,group2",otherdata
 		},
 	}
 	for i, testCase := range testCases {
-		resp, ok, err := auth.AuthenticateToken(context.Background(), testCase.Token)
-		if testCase.User == nil {
-			if resp != nil {
-				t.Errorf("%d: unexpected non-nil user %#v", i, resp.User)
+		t.Run(testCase.Token, func(t *testing.T) {
+			resp, ok, err := auth.AuthenticateToken(context.Background(), testCase.Token)
+			if testCase.User == nil {
+				if resp != nil {
+					t.Errorf("%d: unexpected non-nil user %#v", i, resp.User)
+				}
+			} else if !reflect.DeepEqual(testCase.User, resp.User) {
+				t.Errorf("%d: expected user \n\t%#v,\n\n\t\tgot %#v", i, testCase.User, resp.User)
 			}
-		} else if !reflect.DeepEqual(testCase.User, resp.User) {
-			t.Errorf("%d: expected user %#v, got %#v", i, testCase.User, resp.User)
-		}
 
-		if testCase.Ok != ok {
-			t.Errorf("%d: expected auth %v, got %v", i, testCase.Ok, ok)
-		}
-		switch {
-		case err == nil && testCase.Err:
-			t.Errorf("%d: unexpected nil error", i)
-		case err != nil && !testCase.Err:
-			t.Errorf("%d: unexpected error: %v", i, err)
-		}
+			if testCase.Ok != ok {
+				t.Errorf("%d: expected auth \n\t%v,\n\n\t\tgot %v", i, testCase.Ok, ok)
+			}
+			switch {
+			case err == nil && testCase.Err:
+				t.Errorf("%d: unexpected nil error", i)
+			case err != nil && !testCase.Err:
+				t.Errorf("%d: unexpected error: %v", i, err)
+			}
+		})
 	}
 }
 

@@ -146,7 +146,6 @@ func TestCreateMasterAuditPolicy(t *testing.T) {
 
 	at.testNonResources(none, allUsers, "/healthz", "/healthz/etcd", "/swagger-2.0.0.json", "/swagger-2.0.0.pb-v1.gz", "/version")
 	at.testNonResources(metadata, allUsers, "/logs", "/openapi/v2", "/apis/policy", "/metrics", "/api")
-
 	at.testResources(none, node, apiserver, defaultSA, anonymous, "get", "list", "create", "patch", "update", "delete", events)
 
 	at.testResources(request, kubelet, node, npd, npdSA, "update", "patch", nodeStatus, podStatus)
