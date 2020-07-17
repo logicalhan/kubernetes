@@ -209,6 +209,15 @@ func ClusterRoles() []rbacv1.ClusterRole {
 			},
 		},
 		{
+			// a role which allows access to the metrics endpoint
+			ObjectMeta: metav1.ObjectMeta{Name: "system:metrics-viewer"},
+			Rules: []rbacv1.PolicyRule{
+				rbacv1helpers.NewRule("get").URLs(
+					"/metrics",
+				).RuleOrDie(),
+			},
+		},
+		{
 			// a role which provides minimal resource access to allow a "normal" user to learn information about themselves
 			ObjectMeta: metav1.ObjectMeta{Name: "system:basic-user"},
 			Rules: []rbacv1.PolicyRule{

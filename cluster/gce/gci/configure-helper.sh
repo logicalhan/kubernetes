@@ -687,6 +687,9 @@ function create-master-auth {
     append_or_replace_prefixed_line "${known_tokens_csv}" "${KONNECTIVITY_SERVER_TOKEN},"     "system:konnectivity-server,uid:system:konnectivity-server"
     create-kubeconfig "konnectivity-server" ${KONNECTIVITY_SERVER_TOKEN}
   fi
+  if [[ -n "${METRIC_VIEWER_TOKEN:-}" ]]; then
+    append_or_replace_prefixed_line "${known_tokens_csv}" "${METRIC_VIEWER_TOKEN},"     "system:metrics-viewer,uid:system:metrics-viewer"
+  fi
 
   if [[ -n "${EXTRA_STATIC_AUTH_COMPONENTS:-}" ]]; then
     # Create a static Bearer token and kubeconfig for extra, comma-separated components.
@@ -2899,7 +2902,9 @@ function main() {
   if [[ "${ENABLE_EGRESS_VIA_KONNECTIVITY_SERVICE:-false}" == "true" ]]; then
     KONNECTIVITY_SERVER_TOKEN="$(secure_random 32)"
   fi
-
+  if [[ "${ENABLE_METRIC_VIEWER:-false}" == "true" ]]; then
+    METRIC_VIEWER_TOKEN="$(secure_random 32)"
+  fi
 
   setup-os-params
   config-ip-firewall
