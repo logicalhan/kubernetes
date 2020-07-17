@@ -70,8 +70,10 @@ func (i *DefaultInfo) GetExtra() map[string][]string {
 const (
 	SystemPrivilegedGroup = "system:masters"
 	NodesGroup            = "system:nodes"
-	AllUnauthenticated    = "system:unauthenticated"
-	AllAuthenticated      = "system:authenticated"
+	// TODO(logicalhan): configure flowcontrol for requests from this group
+	MonitoringGroup    = "system:monitoring"
+	AllUnauthenticated = "system:unauthenticated"
+	AllAuthenticated   = "system:authenticated"
 
 	Anonymous     = "system:anonymous"
 	APIServerUser = "system:apiserver"
