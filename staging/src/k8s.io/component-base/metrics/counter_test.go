@@ -18,6 +18,7 @@ package metrics
 
 import (
 	"bytes"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"testing"
 
 	"github.com/blang/semver"
@@ -107,6 +108,101 @@ func TestCounter(t *testing.T) {
 				mfMetric := mf.GetMetric()
 				for _, m := range mfMetric {
 					assert.Equalf(t, numberOfTimesToIncrement, int(m.GetCounter().GetValue()), "Got %v, wanted %v as the count", m.GetCounter().GetValue(), numberOfTimesToIncrement)
+				}
+			}
+		})
+	}
+}
+
+func TestCounterWithLabelValueAllowLists(t *testing.T) {
+	var labels = []string{"label1", "label2"}
+	var labelAllowedValues = map[string]sets.String{
+		"label1": sets.NewString("allowed", "allowed2"),
+		"label2": sets.NewString("allowed", "allowed2")}
+	var tests = []struct {
+		desc string
+		*CounterOpts
+		expectedMetricCount int
+		expectedHelp        string
+	}{
+		{
+			desc: "Test non deprecated",
+			CounterOpts: &CounterOpts{
+				Namespace:      "namespace",
+				Name:           "metric_test_name",
+				Subsystem:      "subsystem",
+				StabilityLevel: ALPHA,
+				Help:           "counter help",
+			},
+			expectedMetricCount: 1,
+			expectedHelp:        "[ALPHA] counter help",
+		},
+		{
+			desc: "Test deprecated",
+			CounterOpts: &CounterOpts{
+				Namespace:         "namespace",
+				Name:              "metric_test_name",
+				Subsystem:         "subsystem",
+				Help:              "counter help",
+				StabilityLevel:    ALPHA,
+				DeprecatedVersion: "1.15.0",
+			},
+			expectedMetricCount: 1,
+			expectedHelp:        "[ALPHA] (Deprecated since 1.15.0) counter help",
+		},
+		{
+			desc: "Test hidden",
+			CounterOpts: &CounterOpts{
+				Namespace:         "namespace",
+				Name:              "metric_test_name",
+				Subsystem:         "subsystem",
+				Help:              "counter help",
+				StabilityLevel:    ALPHA,
+				DeprecatedVersion: "1.14.0",
+			},
+			expectedMetricCount: 0,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.desc, func(t *testing.T) {
+			registry := newKubeRegistry(apimachineryversion.Info{
+				Major:      "1",
+				Minor:      "15",
+				GitVersion: "v1.15.0-alpha-1.12345",
+			})
+			// c is a pointer to a Counter
+			c := NewCounterVecWithLabelValueAllowList(test.CounterOpts, labels, labelAllowedValues)
+			registry.MustRegister(c)
+			c.WithLabelValues("allowed", "allowed").Inc()
+
+			// mfs is a pointer to a dto.MetricFamily slice
+			mfs, err := registry.Gather()
+			var buf bytes.Buffer
+			enc := expfmt.NewEncoder(&buf, "text/plain; version=0.0.4; charset=utf-8")
+			assert.Equalf(t, test.expectedMetricCount, len(mfs), "Got %v metrics, Want: %v metrics", len(mfs), test.expectedMetricCount)
+			if len(mfs) != test.expectedMetricCount {
+				t.Errorf("%v\n", mfs)
+			}
+			assert.Nil(t, err, "Gather failed %v", err)
+			for _, metric := range mfs {
+				err := enc.Encode(metric)
+				assert.Nil(t, err, "Unexpected err %v in encoding the metric", err)
+				assert.Equalf(t, test.expectedHelp, metric.GetHelp(), "Got %s as help message, want %s", metric.GetHelp(), test.expectedHelp)
+			}
+
+			// increment the counter N number of times and verify that the metric retains the count correctly
+			numberOfTimesToIncrement := 3
+			for i := 0; i < numberOfTimesToIncrement; i++ {
+				c.WithLabelValues("allowed", "not-allowed").Inc()
+			}
+			mfs, err = registry.Gather()
+			assert.Nil(t, err, "Gather failed %v", err)
+
+			for _, mf := range mfs {
+				mfMetric := mf.GetMetric()
+				for _, m := range mfMetric {
+					assert.Equalf(t, numberOfTimesToIncrement+1, int(m.GetCounter().GetValue()), "Got %v, wanted %v as the count", m.GetCounter().GetValue(), numberOfTimesToIncrement+1)
 				}
 			}
 		})

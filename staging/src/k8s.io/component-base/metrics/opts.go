@@ -18,6 +18,7 @@ package metrics
 
 import (
 	"fmt"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"sync"
 	"time"
 
@@ -31,15 +32,16 @@ import (
 // Name must be set to a non-empty string. DeprecatedVersion is defined only
 // if the metric for which this options applies is, in fact, deprecated.
 type KubeOpts struct {
-	Namespace         string
-	Subsystem         string
-	Name              string
-	Help              string
-	ConstLabels       map[string]string
-	DeprecatedVersion string
-	deprecateOnce     sync.Once
-	annotateOnce      sync.Once
-	StabilityLevel    StabilityLevel
+	Namespace            string
+	Subsystem            string
+	Name                 string
+	Help                 string
+	ConstLabels          map[string]string
+	DeprecatedVersion    string
+	deprecateOnce        sync.Once
+	annotateOnce         sync.Once
+	StabilityLevel       StabilityLevel
+	LabelValueAllowLists map[string]sets.String
 }
 
 // BuildFQName joins the given three name components by "_". Empty name
@@ -199,6 +201,7 @@ type SummaryOpts struct {
 	deprecateOnce     sync.Once
 	annotateOnce      sync.Once
 	StabilityLevel    StabilityLevel
+	LabelValueAllowLists map[string]sets.String
 }
 
 // Modify help description on the metric description.

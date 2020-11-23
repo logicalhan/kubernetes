@@ -19,6 +19,7 @@ package metrics
 import (
 	"github.com/blang/semver"
 	"github.com/prometheus/client_golang/prometheus"
+	"k8s.io/apimachinery/pkg/util/sets"
 )
 
 // Counter is our internal representation for our wrapping struct around prometheus
@@ -104,6 +105,22 @@ func NewCounterVec(opts *CounterOpts, labels []string) *CounterVec {
 	return cv
 }
 
+// NewCounterVec returns an object which satisfies the kubeCollector and CounterVecMetric interfaces.
+// However, the object returned will not measure anything unless the collector is first
+// registered, since the metric is lazily instantiated.
+func NewCounterVecWithLabelValueAllowList(opts *CounterOpts, labels []string, labelValueAllowLists map[string]sets.String) *CounterVec {
+	opts.StabilityLevel.setDefaults()
+	opts.LabelValueAllowLists = labelValueAllowLists
+	cv := &CounterVec{
+		CounterVec:     noopCounterVec,
+		CounterOpts:    opts,
+		originalLabels: labels,
+		lazyMetric:     lazyMetric{},
+	}
+	cv.lazyInit(cv, BuildFQName(opts.Namespace, opts.Subsystem, opts.Name))
+	return cv
+}
+
 // DeprecatedVersion returns a pointer to the Version or nil
 func (v *CounterVec) DeprecatedVersion() *semver.Version {
 	return parseSemver(v.CounterOpts.DeprecatedVersion)
@@ -139,6 +156,15 @@ func (v *CounterVec) initializeDeprecatedMetric() {
 func (v *CounterVec) WithLabelValues(lvs ...string) CounterMetric {
 	if !v.IsCreated() {
 		return noop // return no-op counter
+	}
+
+	for labelIndex, labelValue := range lvs {
+		labelName := v.originalLabels[labelIndex]
+		if allowedValues, ok := v.LabelValueAllowLists[labelName]; ok {
+			if !allowedValues.Has(labelValue) {
+				lvs[labelIndex] = "unexpected-label-value"
+			}
+		}
 	}
 	return v.CounterVec.WithLabelValues(lvs...)
 }
