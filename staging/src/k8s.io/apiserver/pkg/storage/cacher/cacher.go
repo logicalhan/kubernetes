@@ -508,11 +508,10 @@ func (c *Cacher) Watch(ctx context.Context, key string, opts storage.ListOptions
 		return newErrWatcher(err), nil
 	}
 
-	// With some events already sent, update resourceVersion so that
-	// events that were buffered and not yet processed won't be delivered
-	// to this watcher second time causing going back in time.
+	// For rv=0, we need to start the watch from the watchCache
+	// rv watermark, since that will be our resumption point.
 	if len(initEvents) > 0 {
-		watchRV = initEvents[len(initEvents)-1].ResourceVersion
+		watchRV = c.watchCache.resourceVersion
 	}
 
 	func() {

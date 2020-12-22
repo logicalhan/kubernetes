@@ -600,7 +600,7 @@ func (w *watchCache) GetAllEventsSinceThreadUnsafe(resourceVersion uint64) ([]*w
 				ObjLabels:       objLabels,
 				ObjFields:       objFields,
 				Key:             elem.Key,
-				ResourceVersion: w.resourceVersion,
+				ResourceVersion: 0,
 			}
 		}
 		return result, nil
