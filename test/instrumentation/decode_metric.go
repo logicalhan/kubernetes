@@ -200,7 +200,38 @@ func (c *metricDecoder) decodeOpts(expr ast.Expr) (metric, error) {
 				if err != nil {
 					return m, err
 				}
+			case *ast.BinaryExpr:
+				var binaryExpr *ast.BinaryExpr
+				binaryExpr = v
+				var okay bool
+				okay = true
 
+				for okay {
+					yV, okay := binaryExpr.Y.(*ast.BasicLit)
+					if !okay {
+						return m, newDecodeErrorf(expr, errNonStringAttribute)
+					}
+					yVal, err := stringValue(yV)
+					if err != nil {
+						return m, newDecodeErrorf(expr, errNonStringAttribute)
+					}
+					value = fmt.Sprintf("%s%s", yVal, value)
+					x, okay := binaryExpr.X.(*ast.BinaryExpr)
+					if !okay {
+						// should be basicLit
+						xV, okay := binaryExpr.X.(*ast.BasicLit)
+						if !okay {
+							return m, newDecodeErrorf(expr, errNonStringAttribute)
+						}
+						xVal, err := stringValue(xV)
+						if err != nil {
+							return m, newDecodeErrorf(expr, errNonStringAttribute)
+						}
+						value = fmt.Sprintf("%s%s", xVal, value)
+						break
+					}
+					binaryExpr = x
+				}
 			default:
 				return m, newDecodeErrorf(expr, errNonStringAttribute)
 			}

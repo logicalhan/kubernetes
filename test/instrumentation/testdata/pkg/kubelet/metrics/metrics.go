@@ -240,6 +240,18 @@ var (
 		},
 		[]string{"preemption_signal"},
 	)
+	// MultiLineHelp tests that we can parse multi-line strings
+	MultiLineHelp = metrics.NewCounterVec(
+		&metrics.CounterOpts{
+			Subsystem: KubeletSubsystem,
+			Name:      "multiline",
+			Help: "Cumulative number of pod preemptions by preemption resource " +
+				"asdf asdf asdf " +
+				"asdfas dfasdf",
+			StabilityLevel: metrics.STABLE,
+		},
+		[]string{"preemption_signal"},
+	)
 	// DevicePluginRegistrationCount is a Counter that tracks the cumulative number of device plugin registrations.
 	// Broken down by resource name.
 	DevicePluginRegistrationCount = metrics.NewCounterVec(

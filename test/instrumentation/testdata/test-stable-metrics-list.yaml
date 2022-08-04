@@ -1,3 +1,11 @@
+- name: multiline
+  subsystem: kubelet
+  help: Cumulative number of pod preemptions by preemption resource asdf asdf asdf
+    asdfas dfasdf
+  type: Counter
+  stabilityLevel: STABLE
+  labels:
+  - preemption_signal
 - name: summary_metric_test
   subsystem: kubelet
   help: Cumulative number of device plugin registrations. Broken down by resource
