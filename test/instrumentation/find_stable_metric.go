@@ -78,12 +78,13 @@ func (f *stableMetricFinder) Visit(node ast.Node) (w ast.Visitor) {
 		switch *stabilityLevel {
 		case metrics.STABLE:
 			if f.currentFunctionCall == nil {
-				f.errors = append(f.errors, newDecodeErrorf(opts, errNotDirectCall))
+				//println("alala", *stabilityLevel)
+				//f.errors = append(f.errors, newDecodeErrorf(opts, errNotDirectCall))
 				return nil
 			}
 			f.stableMetricsFunctionCalls = append(f.stableMetricsFunctionCalls, f.currentFunctionCall)
 			f.currentFunctionCall = nil
-		case metrics.ALPHA:
+		case metrics.INTERNAL, metrics.BETA, metrics.ALPHA:
 			return nil
 		}
 	default:

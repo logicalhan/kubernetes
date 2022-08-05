@@ -90,7 +90,7 @@ var (
 				"is in seconds until certificate expiry (negative if " +
 				"already expired). If auth exec plugins are unused or manage no " +
 				"TLS certificates, the value will be +INF.",
-			StabilityLevel: k8smetrics.ALPHA,
+			StabilityLevel: k8smetrics.INTERNAL,
 		},
 		func() float64 {
 			if execPluginCertTTLAdapter.e == nil {

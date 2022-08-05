@@ -65,6 +65,8 @@ const (
 
 var (
 	defObjectives = map[float64]float64{0.5: 0.5, 0.75: 0.75}
+	testBuckets   = []float64{0, 0.5, 1.0}
+	testLabels    = []string{"a", "b", "c"}
 	// NodeName is a Gauge that tracks the ode's name. The count is always 1.
 	NodeName = metrics.NewGaugeVec(
 		&metrics.GaugeOpts{
@@ -81,7 +83,7 @@ var (
 			Subsystem:      KubeletSubsystem,
 			Name:           "containers_per_pod_count",
 			Help:           "The number of containers per pod.",
-			Buckets:        metrics.ExponentialBuckets(1, 2, 5),
+			Buckets:        testBuckets,
 			StabilityLevel: metrics.ALPHA,
 		},
 	)
@@ -95,7 +97,7 @@ var (
 			Buckets:        metrics.DefBuckets,
 			StabilityLevel: metrics.ALPHA,
 		},
-		[]string{"operation_type"},
+		testLabels,
 	)
 	// PodStartDuration is a Histogram that tracks the duration (in seconds) it takes for a single pod to go from pending to running.
 	PodStartDuration = metrics.NewHistogram(
@@ -456,4 +458,8 @@ func SinceInSeconds(start time.Time) float64 {
 // SetNodeName sets the NodeName Gauge to 1.
 func SetNodeName(name types.NodeName) {
 	NodeName.WithLabelValues(string(name)).Set(1)
+}
+
+func Blah() metrics.ObserverMetric {
+	return EvictionStatsAge.With(metrics.Labels{"plugins": "ASDf"})
 }
