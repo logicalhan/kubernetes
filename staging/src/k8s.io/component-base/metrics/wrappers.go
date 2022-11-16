@@ -130,6 +130,11 @@ type ObserverMetric interface {
 	Observe(float64)
 }
 
+type ExemplarObserverMetric interface {
+	ObserverMetric
+	ExemplarObserver
+}
+
 // PromRegistry is an interface which implements a subset of prometheus.Registerer and
 // prometheus.Gatherer interfaces
 type PromRegistry interface {

@@ -542,7 +542,7 @@ func (c *metricDecoder) decodeBucketFunctionCall(v *ast.CallExpr) ([]float64, er
 					case "LinearBuckets":
 						merged = append(merged, metrics.LinearBuckets(firstArg, secondArg, thirdArg)...)
 					case "ExponentialBuckets":
-						merged = append(merged, metrics.LinearBuckets(firstArg, secondArg, thirdArg)...)
+						merged = append(merged, metrics.ExponentialBuckets(firstArg, secondArg, thirdArg)...)
 					}
 				}
 			}

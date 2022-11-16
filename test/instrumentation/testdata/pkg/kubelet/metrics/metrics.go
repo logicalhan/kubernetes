@@ -357,7 +357,7 @@ var (
 			Subsystem:      KubeletSubsystem,
 			Name:           DevicePluginAllocationDurationKey,
 			Help:           "Duration in seconds to serve a device plugin Allocation request. Broken down by resource name.",
-			Buckets:        metrics.DefBuckets,
+			Buckets:        metrics.ExponentialBuckets(0.001, 1.1, 10),
 			StabilityLevel: metrics.BETA,
 		},
 		[]string{"resource_name"},

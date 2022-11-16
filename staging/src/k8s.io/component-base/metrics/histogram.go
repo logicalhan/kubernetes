@@ -18,7 +18,6 @@ package metrics
 
 import (
 	"context"
-
 	"github.com/blang/semver/v4"
 	"github.com/prometheus/client_golang/prometheus"
 )
@@ -30,6 +29,7 @@ type Histogram struct {
 	*HistogramOpts
 	lazyMetric
 	selfCollector
+	ExemplarObserver
 }
 
 // NewHistogram returns an object which is Histogram-like. However, nothing
@@ -200,12 +200,25 @@ func (v *HistogramVec) WithContext(ctx context.Context) *HistogramVecWithContext
 // HistogramVecWithContext is the wrapper of HistogramVec with context.
 type HistogramVecWithContext struct {
 	*HistogramVec
-	ctx context.Context
+	ctx            context.Context
+	curriedMetrics map[string]curriedHistogramLabels
+}
+
+type curriedHistogramLabels struct {
+	labels []string
+	ObserverMetric
+	promMetric *HistogramVec
+}
+
+func (chl curriedHistogramLabels) Observe(v float64) {
+
+	chl.promMetric.WithLabelValues(chl.labels...).(prometheus.ExemplarObserver).ObserveWithExemplar(v, nil)
 }
 
 // WithLabelValues is the wrapper of HistogramVec.WithLabelValues.
 func (vc *HistogramVecWithContext) WithLabelValues(lvs ...string) ObserverMetric {
-	return vc.HistogramVec.WithLabelValues(lvs...)
+	curried := curriedHistogramLabels{labels: lvs, promMetric: vc.HistogramVec}
+	return curried
 }
 
 // With is the wrapper of HistogramVec.With.
