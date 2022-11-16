@@ -50,7 +50,7 @@ const (
 type HandlerOpts promhttp.HandlerOpts
 
 func (ho *HandlerOpts) toPromhttpHandlerOpts() promhttp.HandlerOpts {
-	return promhttp.HandlerOpts(*ho)
+	return promhttp.HandlerOpts{EnableOpenMetrics: true}
 }
 
 // HandlerFor returns an uninstrumented http.Handler for the provided
