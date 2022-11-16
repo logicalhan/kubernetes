@@ -29,7 +29,6 @@ type Histogram struct {
 	*HistogramOpts
 	lazyMetric
 	selfCollector
-	ExemplarObserver
 }
 
 // NewHistogram returns an object which is Histogram-like. However, nothing
