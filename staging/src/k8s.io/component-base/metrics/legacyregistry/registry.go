@@ -54,7 +54,7 @@ func init() {
 // already instrumented with InstrumentHandler (using "prometheus" as handler
 // name).
 func Handler() http.Handler {
-	return promhttp.InstrumentMetricHandler(prometheus.DefaultRegisterer, promhttp.HandlerFor(defaultRegistry, promhttp.HandlerOpts{EnableOpenMetrics: true}))
+	return promhttp.InstrumentMetricHandler(prometheus.DefaultRegisterer, promhttp.HandlerFor(defaultRegistry, promhttp.HandlerOpts{EnableOpenMetrics: false}))
 }
 
 // HandlerWithReset returns an HTTP handler for the DefaultGatherer but invokes
@@ -62,7 +62,7 @@ func Handler() http.Handler {
 func HandlerWithReset() http.Handler {
 	return promhttp.InstrumentMetricHandler(
 		prometheus.DefaultRegisterer,
-		metrics.HandlerWithReset(defaultRegistry, metrics.HandlerOpts{EnableOpenMetrics: true}))
+		metrics.HandlerWithReset(defaultRegistry, metrics.HandlerOpts{EnableOpenMetrics: false}))
 }
 
 // CustomRegister registers a custom collector but uses the global registry.
