@@ -62,7 +62,7 @@ func Handler() http.Handler {
 func HandlerWithReset() http.Handler {
 	return promhttp.InstrumentMetricHandler(
 		prometheus.DefaultRegisterer,
-		metrics.HandlerWithReset(defaultRegistry, metrics.HandlerOpts{}))
+		metrics.HandlerWithReset(defaultRegistry, metrics.HandlerOpts{EnableOpenMetrics: true}))
 }
 
 // CustomRegister registers a custom collector but uses the global registry.
