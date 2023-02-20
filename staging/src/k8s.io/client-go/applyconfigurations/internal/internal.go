@@ -8345,6 +8345,84 @@ var schemaYAML = typed.YAMLObject(`types:
     - name: maxUnavailable
       type:
         namedType: io.k8s.apimachinery.pkg.util.intstr.IntOrString
+- name: io.k8s.api.features.v1alpha1.Feature
+  map:
+    fields:
+    - name: apiVersion
+      type:
+        scalar: string
+    - name: kind
+      type:
+        scalar: string
+    - name: metadata
+      type:
+        namedType: io.k8s.apimachinery.pkg.apis.meta.v1.ObjectMeta
+      default: {}
+    - name: spec
+      type:
+        namedType: io.k8s.api.features.v1alpha1.FeatureSpec
+      default: {}
+    - name: status
+      type:
+        namedType: io.k8s.api.features.v1alpha1.FeatureStatus
+      default: {}
+- name: io.k8s.api.features.v1alpha1.FeatureSpec
+  map:
+    fields:
+    - name: desired
+      type:
+        scalar: string
+- name: io.k8s.api.features.v1alpha1.FeatureStatus
+  map:
+    fields:
+    - name: class
+      type:
+        scalar: string
+      default: ""
+    - name: default
+      type:
+        scalar: string
+      default: ""
+    - name: name
+      type:
+        scalar: string
+      default: ""
+    - name: stability
+      type:
+        scalar: string
+      default: ""
+    - name: state
+      type:
+        scalar: string
+      default: ""
+    - name: useEvaluationTime
+      type:
+        namedType: io.k8s.apimachinery.pkg.apis.meta.v1.Time
+    - name: uses
+      type:
+        list:
+          elementType:
+            namedType: io.k8s.api.features.v1alpha1.FeatureUse
+          elementRelationship: atomic
+    - name: version
+      type:
+        scalar: string
+      default: ""
+- name: io.k8s.api.features.v1alpha1.FeatureUse
+  map:
+    fields:
+    - name: enabled
+      type:
+        scalar: string
+      default: ""
+    - name: reportTime
+      type:
+        namedType: io.k8s.apimachinery.pkg.apis.meta.v1.Time
+      default: {}
+    - name: version
+      type:
+        scalar: string
+      default: ""
 - name: io.k8s.api.flowcontrol.v1alpha1.FlowDistinguisherMethod
   map:
     fields:

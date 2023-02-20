@@ -80,6 +80,8 @@ import (
 	fakeeventsv1beta1 "k8s.io/client-go/kubernetes/typed/events/v1beta1/fake"
 	extensionsv1beta1 "k8s.io/client-go/kubernetes/typed/extensions/v1beta1"
 	fakeextensionsv1beta1 "k8s.io/client-go/kubernetes/typed/extensions/v1beta1/fake"
+	featuresv1alpha1 "k8s.io/client-go/kubernetes/typed/features/v1alpha1"
+	fakefeaturesv1alpha1 "k8s.io/client-go/kubernetes/typed/features/v1alpha1/fake"
 	flowcontrolv1alpha1 "k8s.io/client-go/kubernetes/typed/flowcontrol/v1alpha1"
 	fakeflowcontrolv1alpha1 "k8s.io/client-go/kubernetes/typed/flowcontrol/v1alpha1/fake"
 	flowcontrolv1beta1 "k8s.io/client-go/kubernetes/typed/flowcontrol/v1beta1"
@@ -315,6 +317,11 @@ func (c *Clientset) EventsV1beta1() eventsv1beta1.EventsV1beta1Interface {
 // ExtensionsV1beta1 retrieves the ExtensionsV1beta1Client
 func (c *Clientset) ExtensionsV1beta1() extensionsv1beta1.ExtensionsV1beta1Interface {
 	return &fakeextensionsv1beta1.FakeExtensionsV1beta1{Fake: &c.Fake}
+}
+
+// FeaturesV1alpha1 retrieves the FeaturesV1alpha1Client
+func (c *Clientset) FeaturesV1alpha1() featuresv1alpha1.FeaturesV1alpha1Interface {
+	return &fakefeaturesv1alpha1.FakeFeaturesV1alpha1{Fake: &c.Fake}
 }
 
 // FlowcontrolV1alpha1 retrieves the FlowcontrolV1alpha1Client

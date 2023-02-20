@@ -111,6 +111,7 @@ scheduling.k8s.io/v1 \
 storage.k8s.io/v1beta1 \
 storage.k8s.io/v1 \
 storage.k8s.io/v1alpha1 \
+features.k8s.io/v1alpha1 \
 flowcontrol.apiserver.k8s.io/v1alpha1 \
 flowcontrol.apiserver.k8s.io/v1beta1 \
 flowcontrol.apiserver.k8s.io/v1beta2 \

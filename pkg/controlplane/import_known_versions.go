@@ -32,6 +32,7 @@ import (
 	_ "k8s.io/kubernetes/pkg/apis/discovery/install"
 	_ "k8s.io/kubernetes/pkg/apis/events/install"
 	_ "k8s.io/kubernetes/pkg/apis/extensions/install"
+	_ "k8s.io/kubernetes/pkg/apis/features/install"
 	_ "k8s.io/kubernetes/pkg/apis/flowcontrol/install"
 	_ "k8s.io/kubernetes/pkg/apis/imagepolicy/install"
 	_ "k8s.io/kubernetes/pkg/apis/networking/install"

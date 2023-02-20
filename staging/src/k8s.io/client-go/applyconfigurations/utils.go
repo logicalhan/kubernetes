@@ -42,6 +42,7 @@ import (
 	eventsv1 "k8s.io/api/events/v1"
 	eventsv1beta1 "k8s.io/api/events/v1beta1"
 	extensionsv1beta1 "k8s.io/api/extensions/v1beta1"
+	featuresv1alpha1 "k8s.io/api/features/v1alpha1"
 	flowcontrolv1alpha1 "k8s.io/api/flowcontrol/v1alpha1"
 	flowcontrolv1beta1 "k8s.io/api/flowcontrol/v1beta1"
 	flowcontrolv1beta2 "k8s.io/api/flowcontrol/v1beta2"
@@ -90,6 +91,7 @@ import (
 	applyconfigurationseventsv1 "k8s.io/client-go/applyconfigurations/events/v1"
 	applyconfigurationseventsv1beta1 "k8s.io/client-go/applyconfigurations/events/v1beta1"
 	applyconfigurationsextensionsv1beta1 "k8s.io/client-go/applyconfigurations/extensions/v1beta1"
+	applyconfigurationsfeaturesv1alpha1 "k8s.io/client-go/applyconfigurations/features/v1alpha1"
 	applyconfigurationsflowcontrolv1alpha1 "k8s.io/client-go/applyconfigurations/flowcontrol/v1alpha1"
 	applyconfigurationsflowcontrolv1beta1 "k8s.io/client-go/applyconfigurations/flowcontrol/v1beta1"
 	applyconfigurationsflowcontrolv1beta2 "k8s.io/client-go/applyconfigurations/flowcontrol/v1beta2"
@@ -1013,6 +1015,16 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &applyconfigurationsextensionsv1beta1.RollingUpdateDeploymentApplyConfiguration{}
 	case extensionsv1beta1.SchemeGroupVersion.WithKind("Scale"):
 		return &applyconfigurationsextensionsv1beta1.ScaleApplyConfiguration{}
+
+		// Group=features.k8s.io, Version=v1alpha1
+	case featuresv1alpha1.SchemeGroupVersion.WithKind("Feature"):
+		return &applyconfigurationsfeaturesv1alpha1.FeatureApplyConfiguration{}
+	case featuresv1alpha1.SchemeGroupVersion.WithKind("FeatureSpec"):
+		return &applyconfigurationsfeaturesv1alpha1.FeatureSpecApplyConfiguration{}
+	case featuresv1alpha1.SchemeGroupVersion.WithKind("FeatureStatus"):
+		return &applyconfigurationsfeaturesv1alpha1.FeatureStatusApplyConfiguration{}
+	case featuresv1alpha1.SchemeGroupVersion.WithKind("FeatureUse"):
+		return &applyconfigurationsfeaturesv1alpha1.FeatureUseApplyConfiguration{}
 
 		// Group=flowcontrol.apiserver.k8s.io, Version=v1alpha1
 	case flowcontrolv1alpha1.SchemeGroupVersion.WithKind("FlowDistinguisherMethod"):
