@@ -8,7 +8,7 @@ description: >-
 
 ## Metrics (v1.27)
 
-<!-- (auto-generated 2023 Mar 15) -->
+<!-- (auto-generated 2023 Mar 16) -->
 <!-- (auto-generated v1.27) -->
 This page details the metrics that different Kubernetes components export. You can query the metrics endpoint for these 
 components using an HTTP scrape, and fetch the current metrics data in Prometheus format.
@@ -1409,6 +1409,20 @@ components using an HTTP scrape, and fetch the current metrics data in Prometheu
 <td class="metric_type" data-type="counter">Counter</td>
 <td class="metric_description">Counter of failed Token() requests to the alternate token source</td>
 <td class="metric_labels_varying"></td>
+<td class="metric_labels_constant"></td>
+<td class="metric_deprecated_version"></td></tr>
+<tr class="metric"><td class="metric_name">horizontal_pod_autoscaler_controller_metric_computation_duration_seconds</td>
+<td class="metric_stability_level" data-stability="alpha">ALPHA</td>
+<td class="metric_type" data-type="histogram">Histogram</td>
+<td class="metric_description">The time(seconds) that the HPA controller takes to calculate one metric. The label 'action' should be either 'scale_down', 'scale_up', or 'none'. The label 'error' should be either 'spec', 'internal', or 'none'. The label 'metric_type' corresponds to HPA.spec.metrics[*].type</td>
+<td class="metric_labels_varying"><div class="metric_label">action</div><div class="metric_label">error</div><div class="metric_label">metric_type</div></td>
+<td class="metric_labels_constant"></td>
+<td class="metric_deprecated_version"></td></tr>
+<tr class="metric"><td class="metric_name">horizontal_pod_autoscaler_controller_metric_computation_total</td>
+<td class="metric_stability_level" data-stability="alpha">ALPHA</td>
+<td class="metric_type" data-type="counter">Counter</td>
+<td class="metric_description">Number of metric computations. The label 'action' should be either 'scale_down', 'scale_up', or 'none'. Also, the label 'error' should be either 'spec', 'internal', or 'none'. The label 'metric_type' corresponds to HPA.spec.metrics[*].type</td>
+<td class="metric_labels_varying"><div class="metric_label">action</div><div class="metric_label">error</div><div class="metric_label">metric_type</div></td>
 <td class="metric_labels_constant"></td>
 <td class="metric_deprecated_version"></td></tr>
 <tr class="metric"><td class="metric_name">horizontal_pod_autoscaler_controller_reconciliation_duration_seconds</td>
