@@ -18,6 +18,7 @@ package slis
 
 import (
 	"context"
+
 	k8smetrics "k8s.io/component-base/metrics"
 )
 
@@ -37,7 +38,7 @@ var (
 			Namespace:      "kubernetes",
 			Name:           "healthcheck",
 			Help:           "This metric records the result of a single healthcheck.",
-			StabilityLevel: k8smetrics.ALPHA,
+			StabilityLevel: k8smetrics.BETA,
 		},
 		[]string{"name", "type"},
 	)
@@ -48,7 +49,7 @@ var (
 			Namespace:      "kubernetes",
 			Name:           "healthchecks_total",
 			Help:           "This metric records the results of all healthcheck.",
-			StabilityLevel: k8smetrics.ALPHA,
+			StabilityLevel: k8smetrics.BETA,
 		},
 		[]string{"name", "type", "status"},
 	)
