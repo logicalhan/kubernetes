@@ -29,6 +29,7 @@ import (
 	"strings"
 
 	"gopkg.in/yaml.v2"
+	"k8s.io/apimachinery/pkg/util/sets"
 )
 
 const (
@@ -60,13 +61,20 @@ func main() {
 	errors := []error{}
 
 	addStdin := false
+	stableMetricNames := sets.New[string]()
 	for _, arg := range flag.Args() {
 		if arg == "-" {
 			addStdin = true
 			continue
 		}
 		ms, es := searchPathForStableMetrics(arg)
-		stableMetrics = append(stableMetrics, ms...)
+		for _, m := range ms {
+			if stableMetricNames.Has(m.Name) {
+				continue
+			}
+			stableMetricNames.Insert(m.Name)
+			stableMetrics = append(stableMetrics, m)
+		}
 		errors = append(errors, es...)
 	}
 	if addStdin {
@@ -75,7 +83,13 @@ func main() {
 		for scanner.Scan() {
 			arg := scanner.Text()
 			ms, es := searchPathForStableMetrics(arg)
-			stableMetrics = append(stableMetrics, ms...)
+			for _, m := range ms {
+				if stableMetricNames.Has(m.Name) {
+					continue
+				}
+				stableMetricNames.Insert(m.Name)
+				stableMetrics = append(stableMetrics, m)
+			}
 			errors = append(errors, es...)
 		}
 	}

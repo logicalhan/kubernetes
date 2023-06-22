@@ -23,6 +23,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/component-base/metrics"
 	"k8s.io/component-base/metrics/legacyregistry"
+
 	kubeletmetrics "k8s.io/kubernetes/pkg/kubelet/metrics"
 )
 
@@ -95,10 +96,11 @@ const (
 )
 
 var (
-	defObjectives = map[float64]float64{0.5: 0.5, 0.75: 0.75}
-	testBuckets   = []float64{0, 0.5, 1.0}
-	testLabels    = []string{"a", "b", "c"}
-	maxAge        = 2 * time.Minute
+	defObjectives          = map[float64]float64{0.5: 0.5, 0.75: 0.75}
+	testBuckets            = []float64{0, 0.5, 1.0}
+	testLabels             = []string{"a", "b", "c"}
+	maxAge                 = 2 * time.Minute
+	storageSizeDescription = metrics.NewDesc("apiserver_storage_size_bytes", "Size of the storage database file physically allocated in bytes.", []string{"instance"}, nil, metrics.BETA, "")
 
 	// NodeName is a Gauge that tracks the ode's name. The count is always 1.
 	NodeName = metrics.NewGaugeVec(

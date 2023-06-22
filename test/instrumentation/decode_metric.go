@@ -25,7 +25,12 @@ import (
 	"strings"
 	"time"
 
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/component-base/metrics"
+)
+
+var (
+	commonImportPathsNicknames = sets.New[string]("metrics", "compbasemetrics", "k8smetrics")
 )
 
 func decodeMetricCalls(fs []*ast.CallExpr, metricsImportName string, variables map[string]ast.Expr) ([]metric, []error) {
@@ -779,12 +784,12 @@ func decodeStabilityLevel(expr ast.Expr, metricsFrameworkImportName string) (*me
 	if !ok {
 		return nil, newDecodeErrorf(expr, errStabilityLevel)
 	}
-	if s.String() != metricsFrameworkImportName {
-		return nil, newDecodeErrorf(expr, errStabilityLevel)
+	if s.String() == metricsFrameworkImportName || commonImportPathsNicknames.Has(s.String()) {
+		stability := metrics.StabilityLevel(se.Sel.Name)
+		return &stability, nil
 	}
+	return nil, newDecodeErrorf(expr, errStabilityLevel)
 
-	stability := metrics.StabilityLevel(se.Sel.Name)
-	return &stability, nil
 }
 
 func (c *metricDecoder) decodeConstLabels(expr ast.Expr) (map[string]string, error) {
