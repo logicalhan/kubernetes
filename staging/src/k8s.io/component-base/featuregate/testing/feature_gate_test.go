@@ -22,6 +22,108 @@ import (
 	"k8s.io/component-base/featuregate"
 )
 
+func TestCompatibilityVersion(t *gotest.T) {
+	gate := featuregate.NewFeatureGate()
+	v1_24 := "1.24"
+	v1_28 := "1.28"
+	v1_29 := "1.29"
+
+	gate.Add(map[featuregate.Feature]featuregate.FeatureSpec{
+		"alpha_default_on_v1_29": {PreRelease: featuregate.Alpha, Default: true, DefaultEnabledVersion: &v1_29},
+		"alpha_default_off":      {PreRelease: featuregate.Alpha, Default: false},
+
+		"beta_default_on_v1_28_deprecated_from_v1_29": {PreRelease: featuregate.Beta, Default: true, DefaultEnabledVersion: &v1_28, DeprecatedVersion: &v1_29},
+		"beta_default_off":                            {PreRelease: featuregate.Beta, Default: false},
+
+		"stable_default_on_v1_24": {PreRelease: featuregate.GA, Default: true, DefaultEnabledVersion: &v1_24},
+		"stable_default_off":      {PreRelease: featuregate.GA, Default: false},
+	})
+	testcases := []struct {
+		compatibilityVersion string
+		expectedMap          map[string]bool
+	}{
+		{
+			compatibilityVersion: "1.24",
+			expectedMap: map[string]bool{
+				"alpha_default_on_v1_29":                      false,
+				"alpha_default_off":                           false,
+				"beta_default_on_v1_28_deprecated_from_v1_29": false,
+				"beta_default_off":                            false,
+				"stable_default_on_v1_24":                     true,
+				"stable_default_off":                          false,
+			},
+		},
+		{
+			compatibilityVersion: "1.25",
+			expectedMap: map[string]bool{
+				"alpha_default_on_v1_29":                      false,
+				"alpha_default_off":                           false,
+				"beta_default_on_v1_28_deprecated_from_v1_29": false,
+				"beta_default_off":                            false,
+				"stable_default_on_v1_24":                     true,
+				"stable_default_off":                          false,
+			},
+		},
+		{
+			compatibilityVersion: "1.26",
+			expectedMap: map[string]bool{
+				"alpha_default_on_v1_29":                      false,
+				"alpha_default_off":                           false,
+				"beta_default_on_v1_28_deprecated_from_v1_29": false,
+				"beta_default_off":                            false,
+				"stable_default_on_v1_24":                     true,
+				"stable_default_off":                          false,
+			},
+		},
+		{
+			compatibilityVersion: "1.27",
+			expectedMap: map[string]bool{
+				"alpha_default_on_v1_29":                      false,
+				"alpha_default_off":                           false,
+				"beta_default_on_v1_28_deprecated_from_v1_29": false,
+				"beta_default_off":                            false,
+				"stable_default_on_v1_24":                     true,
+				"stable_default_off":                          false,
+			},
+		},
+		{
+			compatibilityVersion: "1.28",
+			expectedMap: map[string]bool{
+				"alpha_default_on_v1_29":                      false,
+				"alpha_default_off":                           false,
+				"beta_default_on_v1_28_deprecated_from_v1_29": true,
+				"beta_default_off":                            false,
+				"stable_default_on_v1_24":                     true,
+				"stable_default_off":                          false,
+			},
+		},
+		{
+			compatibilityVersion: "1.29",
+			expectedMap: map[string]bool{
+				"alpha_default_on_v1_29":                      true,
+				"alpha_default_off":                           false,
+				"beta_default_on_v1_28_deprecated_from_v1_29": false,
+				"beta_default_off":                            false,
+				"stable_default_on_v1_24":                     true,
+				"stable_default_off":                          false,
+			},
+		},
+	}
+	for _, tc := range testcases {
+		t.Run(tc.compatibilityVersion, func(t *gotest.T) {
+			if err := gate.SetCompatibilityVersion(tc.compatibilityVersion); err != nil {
+				t.Fatalf("unexpected err: %v", err)
+			}
+			for featureName, expectedEnablement := range tc.expectedMap {
+				gotEnabled := gate.Enabled(featuregate.Feature(featureName))
+				if gotEnabled != expectedEnablement {
+					t.Errorf("got Enabled(%s)=%v, wanted %v", featureName, gotEnabled, expectedEnablement)
+				}
+			}
+		})
+	}
+}
+
 func TestSpecialGates(t *gotest.T) {
 	gate := featuregate.NewFeatureGate()
 	gate.Add(map[featuregate.Feature]featuregate.FeatureSpec{

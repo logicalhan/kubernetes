@@ -18,13 +18,16 @@ package featuregate
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"reflect"
 	"sort"
 	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
 
+	"github.com/blang/semver/v4"
 	"github.com/spf13/pflag"
 
 	"k8s.io/apimachinery/pkg/util/naming"
@@ -62,15 +65,23 @@ var (
 		allAlphaGate: setUnsetAlphaGates,
 		allBetaGate:  setUnsetBetaGates,
 	}
+
+	ErrMajorAndMinorOnly = errors.New("version string must only contain major and minor")
 )
 
 type FeatureSpec struct {
 	// Default is the default enablement state for the feature
 	Default bool
+	// DefaultEnabledVersion is the Kubernetes version that this feature is default enabled.
+	DefaultEnabledVersion *string
 	// LockToDefault indicates that the feature is locked to its default and cannot be changed
 	LockToDefault bool
-	// PreRelease indicates the maturity level of the feature
+	// PreRelease indicates the current maturity level of the feature
 	PreRelease prerelease
+	// PromotionVersionMap indicates the k8s version this feature was promoted
+	PromotionVersionMap map[prerelease]string
+	// DeprecatedVersion indicates the k8s version this feature was promoted
+	DeprecatedVersion *string
 }
 
 type prerelease string
@@ -131,6 +142,8 @@ type featureGate struct {
 	enabled *atomic.Value
 	// closed is set to true when AddFlag is called, and prevents subsequent calls to Add
 	closed bool
+
+	compatibilityVersion *semver.Version
 }
 
 func setUnsetAlphaGates(known map[Feature]FeatureSpec, enabled map[Feature]bool, val bool) {
@@ -281,12 +294,11 @@ func (f *featureGate) Add(features map[Feature]FeatureSpec) error {
 
 	for name, spec := range features {
 		if existingSpec, found := known[name]; found {
-			if existingSpec == spec {
+			if reflect.DeepEqual(existingSpec, spec) {
 				continue
 			}
 			return fmt.Errorf("feature gate %q with different spec already exists: %v", name, existingSpec)
 		}
-
 		known[name] = spec
 	}
 
@@ -305,16 +317,62 @@ func (f *featureGate) GetAll() map[Feature]FeatureSpec {
 	return retval
 }
 
+func (f *featureGate) SetCompatibilityVersion(v string) error {
+	if len(strings.Split(v, ".")) != 2 {
+		return ErrMajorAndMinorOnly
+	}
+	withPatch := fmt.Sprintf("%s.0", v)
+	compatibilityVersion := semver.MustParse(withPatch)
+	f.compatibilityVersion = &compatibilityVersion
+	return nil
+}
+
 // Enabled returns true if the key is enabled.  If the key is not known, this call will panic.
 func (f *featureGate) Enabled(key Feature) bool {
-	if v, ok := f.enabled.Load().(map[Feature]bool)[key]; ok {
-		return v
-	}
-	if v, ok := f.known.Load().(map[Feature]FeatureSpec)[key]; ok {
-		return v.Default
-	}
+	if f.compatibilityVersion == nil {
+		// fallback to default behavior, since we don't have compatibility version set
+		if v, ok := f.enabled.Load().(map[Feature]bool)[key]; ok {
+			return v
+		}
+		if v, ok := f.known.Load().(map[Feature]FeatureSpec)[key]; ok {
+			return v.Default
+		}
 
+		panic(fmt.Errorf("feature %q is not registered in FeatureGate %q", key, f.featureGateName))
+	}
+	// the logic is, if we have a set compatibility version, then iterate through all known
+	// features, and check if there is a default enabled version. If there is, we need to
+	// ensure it's not deprecated relative to the compatibility version and that it is indeed
+	// default enabled at the compatibility version.
+	if v, ok := f.known.Load().(map[Feature]FeatureSpec)[key]; ok {
+		if v.DefaultEnabledVersion != nil {
+			defaultEnabledVersion, err := deriveVersion(*v.DefaultEnabledVersion)
+			if err != nil {
+				return false
+			}
+			if v.DeprecatedVersion == nil {
+				return defaultEnabledVersion.LTE(*f.compatibilityVersion)
+			}
+			deprecatedVersion, err := deriveVersion(*v.DeprecatedVersion)
+			if err != nil {
+				return false
+			}
+			if deprecatedVersion.GT(*f.compatibilityVersion) {
+				return defaultEnabledVersion.LTE(*f.compatibilityVersion)
+			}
+		}
+		return false
+	}
 	panic(fmt.Errorf("feature %q is not registered in FeatureGate %q", key, f.featureGateName))
+}
+
+func deriveVersion(ver string) (*semver.Version, error) {
+	if len(strings.Split(ver, ".")) != 2 {
+		return nil, ErrMajorAndMinorOnly
+	}
+	withPatch := fmt.Sprintf("%s.0", ver)
+	compatibilityVersion := semver.MustParse(withPatch)
+	return &compatibilityVersion, nil
 }
 
 // AddFlag adds a flag for setting global feature gates to the specified FlagSet.
