@@ -29,6 +29,152 @@ import (
 	"k8s.io/component-base/metrics/testutil"
 )
 
+func TestPrereleaseAt(t *testing.T) {
+	gate := NewFeatureGateForTest("1.29")
+	testcases := []struct {
+		desc                string
+		promoVersionMapping PromotionVersionMapping
+		compatibilityVers   string
+		expectedPrerelease  string
+	}{
+		{
+			desc: "should be alpha at compatibility version 1.29",
+			promoVersionMapping: PromotionVersionMapping{
+				"ALPHA": "1.29",
+			},
+			compatibilityVers:  "1.29",
+			expectedPrerelease: "ALPHA",
+		},
+		{
+			desc: "should be pre-alpha at compatibility version 1.28",
+			promoVersionMapping: PromotionVersionMapping{
+				"ALPHA": "1.29",
+			},
+			compatibilityVers:  "1.28",
+			expectedPrerelease: "PRE-ALPHA",
+		},
+		{
+			desc: "should be beta at compatibility version 1.29",
+			promoVersionMapping: PromotionVersionMapping{
+				"ALPHA": "1.28",
+				"BETA":  "1.29",
+			},
+			compatibilityVers:  "1.29",
+			expectedPrerelease: "BETA",
+		},
+		{
+			desc: "should be alpha at compatibility version 1.28",
+			promoVersionMapping: PromotionVersionMapping{
+				"ALPHA": "1.28",
+				"BETA":  "1.29",
+			},
+			compatibilityVers:  "1.28",
+			expectedPrerelease: "ALPHA",
+		},
+		{
+			desc: "should be GA at compatibility version 1.29",
+			promoVersionMapping: PromotionVersionMapping{
+				"ALPHA": "1.27",
+				"BETA":  "1.28",
+				"":      "1.29",
+			},
+			compatibilityVers:  "1.29",
+			expectedPrerelease: "",
+		},
+		{
+			desc: "should be BETA at compatibility version 1.28",
+			promoVersionMapping: PromotionVersionMapping{
+				"ALPHA": "1.27",
+				"BETA":  "1.28",
+				"":      "1.29",
+			},
+			compatibilityVers:  "1.28",
+			expectedPrerelease: "BETA",
+		},
+	}
+	for _, tc := range testcases {
+		t.Run(tc.desc, func(t *testing.T) {
+			gate.SetCompatibilityVersion(tc.compatibilityVers)
+			f := FeatureSpec{
+				PromotionVersionMap: tc.promoVersionMapping,
+			}
+			cVer, err := deriveVersion(tc.compatibilityVers)
+			if err != nil {
+				t.Fatalf("unexpected err: %v", err)
+			}
+			gotPrerelease := f.prereleaseAt(cVer)
+			if gotPrerelease != prerelease(tc.expectedPrerelease) {
+				t.Errorf("got %v, expected %v", gotPrerelease, tc.expectedPrerelease)
+			}
+		})
+	}
+}
+
+func TestDefaultAt(t *testing.T) {
+	gate := NewFeatureGateForTest("1.29")
+	testcases := []struct {
+		desc              string
+		defaultEnabledAt  string
+		lockToDefaultVer  *string
+		defaultVal        *bool
+		compatibilityVers string
+		expectedDefault   bool
+	}{
+		{
+			desc:              "should be defaulted at compatibility version 1.29",
+			defaultEnabledAt:  "1.29",
+			compatibilityVers: "1.29",
+			expectedDefault:   true,
+		},
+		{
+			desc:              "should not be defaulted at compatibility version 1.28",
+			defaultEnabledAt:  "1.29",
+			compatibilityVers: "1.28",
+			expectedDefault:   false,
+		},
+		{
+			desc:              "should be defaulted at compatibility version 1.29 when locked to default",
+			lockToDefaultVer:  stringPtr("1.29"),
+			defaultVal:        boolPtr(true),
+			compatibilityVers: "1.29",
+			expectedDefault:   true,
+		},
+		{
+			desc:              "should be mpt defaulted at compatibility version 1.28 when locked to default at 1.29",
+			lockToDefaultVer:  stringPtr("1.29"),
+			defaultVal:        boolPtr(true),
+			compatibilityVers: "1.28",
+			expectedDefault:   false,
+		},
+	}
+	for _, tc := range testcases {
+		t.Run(tc.desc, func(t *testing.T) {
+			gate.SetCompatibilityVersion(tc.compatibilityVers)
+			f := &FeatureSpec{
+				DefaultEnabledVersion: stringPtr(tc.defaultEnabledAt),
+			}
+			if tc.lockToDefaultVer != nil {
+				f.LockToDefaultVersion = tc.lockToDefaultVer
+			}
+			if tc.defaultVal != nil {
+				f.Default = *tc.defaultVal
+			}
+			cVer, err := deriveVersion(tc.compatibilityVers)
+			if err != nil {
+				t.Fatalf("unexpected err: %v", err)
+			}
+			gotDefault := f.defaultAt(cVer)
+			if gotDefault != tc.expectedDefault {
+				t.Errorf("got default=%v, expected default=%v", gotDefault, tc.expectedDefault)
+			}
+		})
+	}
+}
+
+func stringPtr(v string) *string { return &v }
+
+func boolPtr(v bool) *bool { return &v }
+
 func TestFeatureGateFlag(t *testing.T) {
 	// gates for testing
 	const testAlphaGate Feature = "TestAlpha"
@@ -209,7 +355,7 @@ func TestFeatureGateFlag(t *testing.T) {
 	for i, test := range tests {
 		t.Run(test.arg, func(t *testing.T) {
 			fs := pflag.NewFlagSet("testfeaturegateflag", pflag.ContinueOnError)
-			f := NewFeatureGate()
+			f := NewFeatureGateForTest("1.29")
 			f.Add(map[Feature]FeatureSpec{
 				testAlphaGate: {Default: false, PreRelease: Alpha},
 				testBetaGate:  {Default: false, PreRelease: Beta},
@@ -238,7 +384,7 @@ func TestFeatureGateOverride(t *testing.T) {
 	const testBetaGate Feature = "TestBeta"
 
 	// Don't parse the flag, assert defaults are used.
-	var f *featureGate = NewFeatureGate()
+	var f *featureGate = NewFeatureGateForTest("1.29")
 	f.Add(map[Feature]FeatureSpec{
 		testAlphaGate: {Default: false, PreRelease: Alpha},
 		testBetaGate:  {Default: false, PreRelease: Beta},
@@ -267,7 +413,7 @@ func TestFeatureGateFlagDefaults(t *testing.T) {
 	const testBetaGate Feature = "TestBeta"
 
 	// Don't parse the flag, assert defaults are used.
-	var f *featureGate = NewFeatureGate()
+	var f *featureGate = NewFeatureGateForTest("1.29")
 	f.Add(map[Feature]FeatureSpec{
 		testAlphaGate: {Default: false, PreRelease: Alpha},
 		testBetaGate:  {Default: true, PreRelease: Beta},
@@ -291,7 +437,7 @@ func TestFeatureGateKnownFeatures(t *testing.T) {
 	)
 
 	// Don't parse the flag, assert defaults are used.
-	var f *featureGate = NewFeatureGate()
+	var f *featureGate = NewFeatureGateForTest("1.29")
 	f.Add(map[Feature]FeatureSpec{
 		testAlphaGate:      {Default: false, PreRelease: Alpha},
 		testBetaGate:       {Default: true, PreRelease: Beta},
@@ -398,7 +544,7 @@ func TestFeatureGateSetFromMap(t *testing.T) {
 	}
 	for i, test := range tests {
 		t.Run(fmt.Sprintf("SetFromMap %s", test.name), func(t *testing.T) {
-			f := NewFeatureGate()
+			f := NewFeatureGateForTest("1.29")
 			f.Add(map[Feature]FeatureSpec{
 				testAlphaGate:       {Default: false, PreRelease: Alpha},
 				testBetaGate:        {Default: false, PreRelease: Beta},
@@ -443,7 +589,7 @@ func TestFeatureGateMetrics(t *testing.T) {
 		kubernetes_feature_enabled{name="TestBetaDisabled",stage="ALPHA"} 0
 `
 
-	f := NewFeatureGate()
+	f := NewFeatureGateForTest("1.29")
 	fMap := map[Feature]FeatureSpec{
 		testAlphaGate:    {Default: false, PreRelease: Alpha},
 		testAlphaEnabled: {Default: false, PreRelease: Alpha},
@@ -498,7 +644,7 @@ func TestFeatureGateString(t *testing.T) {
 	}
 	for i, test := range tests {
 		t.Run(fmt.Sprintf("SetFromMap %s", test.expect), func(t *testing.T) {
-			f := NewFeatureGate()
+			f := NewFeatureGateForTest("1.29")
 			f.Add(featuremap)
 			f.SetFromMap(test.setmap)
 			result := f.String()

@@ -23,7 +23,7 @@ import (
 )
 
 func TestCompatibilityVersion(t *gotest.T) {
-	gate := featuregate.NewFeatureGate()
+	gate := featuregate.NewFeatureGateForTest("1.30")
 	v1_24 := "1.24"
 	v1_28 := "1.28"
 	v1_29 := "1.29"
@@ -124,23 +124,116 @@ func TestCompatibilityVersion(t *gotest.T) {
 	}
 }
 
+func stringPtr(v string) *string { return &v }
+
 func TestSpecialGates(t *gotest.T) {
-	gate := featuregate.NewFeatureGate()
+	gate := featuregate.NewFeatureGateForTest("1.29")
+	gate.SetCompatibilityVersion("1.29")
 	gate.Add(map[featuregate.Feature]featuregate.FeatureSpec{
-		"alpha_default_on":         {PreRelease: featuregate.Alpha, Default: true},
-		"alpha_default_on_set_off": {PreRelease: featuregate.Alpha, Default: true},
-		"alpha_default_off":        {PreRelease: featuregate.Alpha, Default: false},
-		"alpha_default_off_set_on": {PreRelease: featuregate.Alpha, Default: false},
+		"alpha_default_on": {
+			Default:               true,
+			DefaultEnabledVersion: stringPtr("1.29"),
+			PreRelease:            featuregate.Alpha,
+			PromotionVersionMap: featuregate.PromotionVersionMapping{
+				featuregate.Alpha: "1.28",
+			},
+		},
+		"alpha_default_on_set_off": {
+			PreRelease:            featuregate.Alpha,
+			DefaultEnabledVersion: stringPtr("1.29"),
+			Default:               true,
+			PromotionVersionMap: featuregate.PromotionVersionMapping{
+				featuregate.Alpha: "1.28",
+			},
+		},
+		"alpha_default_off": {
+			PreRelease: featuregate.Alpha,
+			Default:    false,
+			PromotionVersionMap: featuregate.PromotionVersionMapping{
+				featuregate.Alpha: "1.28",
+			},
+		},
+		"alpha_default_off_set_on": {
+			PreRelease: featuregate.Alpha,
+			Default:    false,
+			PromotionVersionMap: featuregate.PromotionVersionMapping{
+				featuregate.Alpha: "1.28",
+			},
+		},
 
-		"beta_default_on":         {PreRelease: featuregate.Beta, Default: true},
-		"beta_default_on_set_off": {PreRelease: featuregate.Beta, Default: true},
-		"beta_default_off":        {PreRelease: featuregate.Beta, Default: false},
-		"beta_default_off_set_on": {PreRelease: featuregate.Beta, Default: false},
+		"beta_default_on": {
+			PreRelease:            featuregate.Beta,
+			Default:               true,
+			DefaultEnabledVersion: stringPtr("1.28"),
+			PromotionVersionMap: featuregate.PromotionVersionMapping{
+				featuregate.Alpha: "1.27",
+				featuregate.Beta:  "1.28",
+			},
+		},
+		"beta_default_on_set_off": {
+			PreRelease:            featuregate.Beta,
+			Default:               true,
+			DefaultEnabledVersion: stringPtr("1.28"),
+			PromotionVersionMap: featuregate.PromotionVersionMapping{
+				featuregate.Alpha: "1.27",
+				featuregate.Beta:  "1.28",
+			},
+		},
+		"beta_default_off": {
+			PreRelease: featuregate.Beta,
+			Default:    false,
+			PromotionVersionMap: featuregate.PromotionVersionMapping{
+				featuregate.Alpha: "1.27",
+				featuregate.Beta:  "1.28",
+			},
+		},
+		"beta_default_off_set_on": {
+			PreRelease: featuregate.Beta,
+			Default:    false,
+			PromotionVersionMap: featuregate.PromotionVersionMapping{
+				featuregate.Alpha: "1.27",
+				featuregate.Beta:  "1.28",
+			},
+		},
 
-		"stable_default_on":         {PreRelease: featuregate.GA, Default: true},
-		"stable_default_on_set_off": {PreRelease: featuregate.GA, Default: true},
-		"stable_default_off":        {PreRelease: featuregate.GA, Default: false},
-		"stable_default_off_set_on": {PreRelease: featuregate.GA, Default: false},
+		"stable_default_on": {
+			PreRelease:            featuregate.GA,
+			Default:               true,
+			DefaultEnabledVersion: stringPtr("1.28"),
+			PromotionVersionMap: featuregate.PromotionVersionMapping{
+				featuregate.Alpha: "1.27",
+				featuregate.Beta:  "1.28",
+				featuregate.GA:    "1.29",
+			},
+		},
+		"stable_default_on_set_off": {
+			PreRelease:            featuregate.GA,
+			Default:               true,
+			DefaultEnabledVersion: stringPtr("1.28"),
+			PromotionVersionMap: featuregate.PromotionVersionMapping{
+				featuregate.Alpha: "1.27",
+				featuregate.Beta:  "1.28",
+				featuregate.GA:    "1.29",
+			},
+		},
+		"stable_default_off": {
+			PreRelease: featuregate.GA,
+			Default:    false,
+			PromotionVersionMap: featuregate.PromotionVersionMapping{
+				featuregate.Alpha: "1.27",
+				featuregate.Beta:  "1.28",
+				featuregate.GA:    "1.29",
+			},
+		},
+		"stable_default_off_set_on": {
+			PreRelease: featuregate.GA,
+			Default:    false,
+			PromotionVersionMap: featuregate.PromotionVersionMapping{
+				featuregate.Alpha: "1.27",
+				featuregate.Beta:  "1.28",
+				featuregate.GA:    "1.29",
+			},
+		},
 	})
 	gate.Set("alpha_default_on_set_off=false")
 	gate.Set("beta_default_on_set_off=false")
