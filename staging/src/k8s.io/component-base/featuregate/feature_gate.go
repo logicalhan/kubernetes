@@ -32,6 +32,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/util/naming"
 	featuremetrics "k8s.io/component-base/metrics/prometheus/feature"
+	"k8s.io/component-base/version"
 	"k8s.io/klog/v2"
 )
 
@@ -61,7 +62,7 @@ var (
 	}
 
 	// Special handling for a few gates.
-	specialFeatures = map[Feature]func(known map[Feature]FeatureSpec, enabled map[Feature]bool, val bool){
+	specialFeatures = map[Feature]func(known map[Feature]FeatureSpec, enabled map[Feature]bool, val bool, cVer semver.Version){
 		allAlphaGate: setUnsetAlphaGates,
 		allBetaGate:  setUnsetBetaGates,
 	}
@@ -69,24 +70,175 @@ var (
 	ErrMajorAndMinorOnly = errors.New("version string must only contain major and minor")
 )
 
+type K8sVersion string
+
+var (
+	V1_25 K8sVersion = "1.25"
+	V1_26 K8sVersion = "1.26"
+	V1_27 K8sVersion = "1.27"
+	V1_28 K8sVersion = "1.28"
+	V1_29 K8sVersion = "1.29"
+	V1_30 K8sVersion = "1.30"
+)
+
+type HistoryEvent string
+
+var (
+	PromotedToAlpha   HistoryEvent = "PromotedToAlpha"
+	PromotedToBeta    HistoryEvent = "PromotedToBeta"
+	PromotedToGA      HistoryEvent = "PromotedToGA"
+	DefaultEnabled    HistoryEvent = "DefaultEnabled"
+	DefaultDisabled   HistoryEvent = "DefaultDisabled"
+	LockedToDefault   HistoryEvent = "LockedToDefault"
+	FeatureDeprecated HistoryEvent = "FeatureDeprecated"
+	Removed           HistoryEvent = "Removed"
+
+	prereleaseSet = map[HistoryEvent]struct{}{
+		PromotedToGA:    {},
+		PromotedToBeta:  {},
+		PromotedToAlpha: {},
+	}
+)
+
+type FeatureHistory struct {
+	Changes        map[K8sVersion][]HistoryEvent
+	reverseMapping map[HistoryEvent]semver.Version
+	built          bool
+}
+
+func (h *FeatureHistory) Build() FeatureHistory {
+	if h.built {
+		// throw error
+	}
+	h.reverseMapping = map[HistoryEvent]semver.Version{}
+	for ver, events := range h.Changes {
+		for _, event := range events {
+			h.reverseMapping[event] = mustParseVersion(string(ver))
+		}
+	}
+	return *h
+}
+
+func (h FeatureHistory) processPrereleases() map[HistoryEvent]semver.Version {
+	prereleaseMapping := map[HistoryEvent]semver.Version{}
+	for ver, events := range h.Changes {
+		for _, event := range events {
+			if _, ok := prereleaseSet[event]; ok {
+				prereleaseMapping[event] = mustParseVersion(string(ver))
+			}
+		}
+	}
+	return prereleaseMapping
+}
+
+func (h FeatureHistory) prereleaseAt(compatibilityVer semver.Version) prerelease {
+	if h.deprecatedAt(compatibilityVer) {
+		return Deprecated
+	}
+	prereleaseMap := h.processPrereleases()
+	versions := []semver.Version{}
+	for _, ver := range prereleaseMap {
+		versions = append(versions, ver)
+	}
+	semver.Sort(versions)
+	//println(len(versions))
+	if len(versions) == 0 {
+		return preAlpha
+	}
+	if len(versions) == 1 {
+		if versions[0].GT(compatibilityVer) {
+			return preAlpha
+		} else {
+			return Alpha
+		}
+	} else if len(versions) == 2 {
+		if versions[1].GT(compatibilityVer) {
+			return Alpha
+		} else {
+			return Beta
+		}
+	}
+	if versions[2].GT(compatibilityVer) {
+		return Beta
+	} else {
+		return GA
+	}
+}
+
+func (h FeatureHistory) deprecatedAt(compatibilityVer semver.Version) bool {
+	if ver, ok := h.reverseMapping[FeatureDeprecated]; !ok {
+		return false
+	} else {
+		return ver.LTE(compatibilityVer)
+	}
+}
+
+func (h FeatureHistory) removedAt(compatibilityVer semver.Version) bool {
+	if ver, ok := h.reverseMapping[Removed]; !ok {
+		return false
+	} else {
+		return ver.LTE(compatibilityVer)
+	}
+}
+
+func (h FeatureHistory) defaultAt(compatibilityVer semver.Version) bool {
+	enabledVer, ok := h.reverseMapping[DefaultEnabled]
+	disabledVer, ok2 := h.reverseMapping[DefaultDisabled]
+	if ok {
+		if ok2 {
+			if enabledVer.GT(disabledVer) {
+				return enabledVer.LTE(compatibilityVer)
+			}
+		}
+		return enabledVer.LTE(compatibilityVer)
+	}
+	return false
+}
+
+func (h FeatureHistory) lockedToDefaultAt(compatibilityVer semver.Version) bool {
+	lockedToDefaultVer, ok := h.reverseMapping[LockedToDefault]
+	if ok {
+		return lockedToDefaultVer.LTE(compatibilityVer)
+	}
+	return false
+}
+
 type FeatureSpec struct {
 	// Default is the default enablement state for the feature
 	Default bool
-	// DefaultEnabledVersion is the Kubernetes version that this feature is default enabled.
-	DefaultEnabledVersion *string
 	// LockToDefault indicates that the feature is locked to its default and cannot be changed
 	LockToDefault bool
 	// PreRelease indicates the current maturity level of the feature
 	PreRelease prerelease
-	// PromotionVersionMap indicates the k8s version this feature was promoted
-	PromotionVersionMap map[prerelease]string
-	// DeprecatedVersion indicates the k8s version this feature was promoted
-	DeprecatedVersion *string
+	// History is a recording of all changes made to the feature.
+	History FeatureHistory
+}
+
+func (fs *FeatureSpec) lockToDefaultAt(compatibilityVer semver.Version) bool {
+	return fs.History.lockedToDefaultAt(compatibilityVer)
+}
+
+func (fs *FeatureSpec) defaultAt(compatibilityVer semver.Version) bool {
+	return fs.History.defaultAt(compatibilityVer)
+}
+
+func (fs *FeatureSpec) prereleaseAt(compatibilityVer semver.Version) prerelease {
+	return fs.History.prereleaseAt(compatibilityVer)
+}
+
+func (fs *FeatureSpec) deprecatedAt(compatibilityVer semver.Version) bool {
+	return fs.History.deprecatedAt(compatibilityVer)
+}
+
+func (fs *FeatureSpec) removedAt(compatibilityVer semver.Version) bool {
+	return fs.History.removedAt(compatibilityVer)
 }
 
 type prerelease string
 
 const (
+	// unexported because this stage is for internal use only
+	preAlpha = prerelease("PRE-ALPHA")
 	// Values for PreRelease.
 	Alpha = prerelease("ALPHA")
 	Beta  = prerelease("BETA")
@@ -132,7 +284,7 @@ type MutableFeatureGate interface {
 type featureGate struct {
 	featureGateName string
 
-	special map[Feature]func(map[Feature]FeatureSpec, map[Feature]bool, bool)
+	special map[Feature]func(map[Feature]FeatureSpec, map[Feature]bool, bool, semver.Version)
 
 	// lock guards writes to known, enabled, and reads/writes of closed
 	lock sync.Mutex
@@ -144,11 +296,13 @@ type featureGate struct {
 	closed bool
 
 	compatibilityVersion *semver.Version
+
+	binaryVersion semver.Version
 }
 
-func setUnsetAlphaGates(known map[Feature]FeatureSpec, enabled map[Feature]bool, val bool) {
+func setUnsetAlphaGates(known map[Feature]FeatureSpec, enabled map[Feature]bool, val bool, cVer semver.Version) {
 	for k, v := range known {
-		if v.PreRelease == Alpha {
+		if v.prereleaseAt(cVer) == Alpha {
 			if _, found := enabled[k]; !found {
 				enabled[k] = val
 			}
@@ -156,9 +310,9 @@ func setUnsetAlphaGates(known map[Feature]FeatureSpec, enabled map[Feature]bool,
 	}
 }
 
-func setUnsetBetaGates(known map[Feature]FeatureSpec, enabled map[Feature]bool, val bool) {
+func setUnsetBetaGates(known map[Feature]FeatureSpec, enabled map[Feature]bool, val bool, cVer semver.Version) {
 	for k, v := range known {
-		if v.PreRelease == Beta {
+		if v.prereleaseAt(cVer) == Beta {
 			if _, found := enabled[k]; !found {
 				enabled[k] = val
 			}
@@ -173,7 +327,11 @@ var _ pflag.Value = &featureGate{}
 // call chains, so they'd be unhelpful as names.
 var internalPackages = []string{"k8s.io/component-base/featuregate/feature_gate.go"}
 
-func NewFeatureGate() *featureGate {
+func NewFeatureGateForTest(binaryVersion string) *featureGate {
+	return newFeatureGateWithBinaryVersion(binaryVersion)
+}
+
+func newFeatureGateWithBinaryVersion(binaryVersion string) *featureGate {
 	known := map[Feature]FeatureSpec{}
 	for k, v := range defaultFeatures {
 		known[k] = v
@@ -192,7 +350,13 @@ func NewFeatureGate() *featureGate {
 		special:         specialFeatures,
 		enabled:         enabledValue,
 	}
+	bVer := mustParseVersion(binaryVersion)
+	f.binaryVersion = bVer
 	return f
+}
+
+func NewFeatureGate() *featureGate {
+	return newFeatureGateWithBinaryVersion(fmt.Sprintf("%s.%s", version.Get().Major, version.Get().Minor))
 }
 
 // Set parses a string of the form "key1=value1,key2=value2,..." into a
@@ -210,6 +374,7 @@ func (f *featureGate) Set(value string) error {
 		}
 		v := strings.TrimSpace(arr[1])
 		boolValue, err := strconv.ParseBool(v)
+		//println("1", k, v)
 		if err != nil {
 			return fmt.Errorf("invalid value of %s=%s, err: %v", k, v, err)
 		}
@@ -223,6 +388,10 @@ func (f *featureGate) SetFromMap(m map[string]bool) error {
 	f.lock.Lock()
 	defer f.lock.Unlock()
 
+	if f.compatibilityVersion == nil {
+		f.compatibilityVersion = &f.binaryVersion
+	}
+
 	// Copy existing state
 	known := map[Feature]FeatureSpec{}
 	for k, v := range f.known.Load().(map[Feature]FeatureSpec) {
@@ -234,23 +403,23 @@ func (f *featureGate) SetFromMap(m map[string]bool) error {
 	}
 
 	for k, v := range m {
-		k := Feature(k)
-		featureSpec, ok := known[k]
+		key := Feature(k)
+		featureSpec, ok := known[key]
 		if !ok {
 			return fmt.Errorf("unrecognized feature gate: %s", k)
 		}
-		if featureSpec.LockToDefault && featureSpec.Default != v {
+		if featureSpec.lockToDefaultAt(*f.compatibilityVersion) && featureSpec.defaultAt(*f.compatibilityVersion) != v {
 			return fmt.Errorf("cannot set feature gate %v to %v, feature is locked to %v", k, v, featureSpec.Default)
 		}
-		enabled[k] = v
+		enabled[key] = v
 		// Handle "special" features like "all alpha gates"
-		if fn, found := f.special[k]; found {
-			fn(known, enabled, v)
+		if fn, found := f.special[key]; found {
+			fn(known, enabled, v, *f.compatibilityVersion)
 		}
 
-		if featureSpec.PreRelease == Deprecated {
+		if featureSpec.prereleaseAt(*f.compatibilityVersion) == Deprecated {
 			klog.Warningf("Setting deprecated feature gate %s=%t. It will be removed in a future release.", k, v)
-		} else if featureSpec.PreRelease == GA {
+		} else if featureSpec.prereleaseAt(*f.compatibilityVersion) == GA {
 			klog.Warningf("Setting GA feature gate %s=%t. It will be removed in a future release.", k, v)
 		}
 	}
@@ -329,39 +498,33 @@ func (f *featureGate) SetCompatibilityVersion(v string) error {
 
 // Enabled returns true if the key is enabled.  If the key is not known, this call will panic.
 func (f *featureGate) Enabled(key Feature) bool {
+	// fallback to default behavior, since we don't have compatibility version set
 	if f.compatibilityVersion == nil {
-		// fallback to default behavior, since we don't have compatibility version set
-		if v, ok := f.enabled.Load().(map[Feature]bool)[key]; ok {
-			return v
-		}
-		if v, ok := f.known.Load().(map[Feature]FeatureSpec)[key]; ok {
-			return v.Default
-		}
-
-		panic(fmt.Errorf("feature %q is not registered in FeatureGate %q", key, f.featureGateName))
+		f.compatibilityVersion = &f.binaryVersion
 	}
-	// the logic is, if we have a set compatibility version, then iterate through all known
-	// features, and check if there is a default enabled version. If there is, we need to
-	// ensure it's not deprecated relative to the compatibility version and that it is indeed
-	// default enabled at the compatibility version.
+	if v, ok := f.enabled.Load().(map[Feature]bool)[key]; ok {
+		return v
+	}
 	if v, ok := f.known.Load().(map[Feature]FeatureSpec)[key]; ok {
-		if v.DefaultEnabledVersion != nil {
-			defaultEnabledVersion, err := deriveVersion(*v.DefaultEnabledVersion)
-			if err != nil {
-				return false
-			}
-			if v.DeprecatedVersion == nil {
-				return defaultEnabledVersion.LTE(*f.compatibilityVersion)
-			}
-			deprecatedVersion, err := deriveVersion(*v.DeprecatedVersion)
-			if err != nil {
-				return false
-			}
-			if deprecatedVersion.GT(*f.compatibilityVersion) {
-				return defaultEnabledVersion.LTE(*f.compatibilityVersion)
-			}
+		if v.deprecatedAt(*f.compatibilityVersion) || v.removedAt(*f.compatibilityVersion) {
+			return false
 		}
-		return false
+		return v.defaultAt(*f.compatibilityVersion)
+		//dVer := v.DeprecatedVersion
+		//if dVer == nil {
+		//	return v.defaultAt(f.compatibilityVersion)
+		//}
+		//parsedDVer, err := deriveVersion(*dVer)
+		//if err != nil {
+		//	return v.defaultAt(f.compatibilityVersion)
+		//}
+		//if f.compatibilityVersion != nil {
+		//	if parsedDVer.LTE(*f.compatibilityVersion) {
+		//		return false
+		//	}
+		//	return v.defaultAt(f.compatibilityVersion)
+		//}
+		//return false
 	}
 	panic(fmt.Errorf("feature %q is not registered in FeatureGate %q", key, f.featureGateName))
 }
@@ -373,6 +536,14 @@ func deriveVersion(ver string) (*semver.Version, error) {
 	withPatch := fmt.Sprintf("%s.0", ver)
 	compatibilityVersion := semver.MustParse(withPatch)
 	return &compatibilityVersion, nil
+}
+
+func mustParseVersion(ver string) semver.Version {
+	parsedVer, err := deriveVersion(ver)
+	if err != nil {
+		panic(err)
+	}
+	return *parsedVer
 }
 
 // AddFlag adds a flag for setting global feature gates to the specified FlagSet.
@@ -402,7 +573,7 @@ func (f *featureGate) AddMetrics() {
 func (f *featureGate) KnownFeatures() []string {
 	var known []string
 	for k, v := range f.known.Load().(map[Feature]FeatureSpec) {
-		if v.PreRelease == GA || v.PreRelease == Deprecated {
+		if v.prereleaseAt(f.binaryVersion) == GA || v.prereleaseAt(f.binaryVersion) == Deprecated {
 			continue
 		}
 		known = append(known, fmt.Sprintf("%s=true|false (%s - default=%t)", k, v.PreRelease, v.Default))

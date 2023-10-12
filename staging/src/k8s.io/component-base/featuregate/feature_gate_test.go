@@ -209,10 +209,27 @@ func TestFeatureGateFlag(t *testing.T) {
 	for i, test := range tests {
 		t.Run(test.arg, func(t *testing.T) {
 			fs := pflag.NewFlagSet("testfeaturegateflag", pflag.ContinueOnError)
-			f := NewFeatureGate()
+			f := NewFeatureGateForTest("1.29")
 			f.Add(map[Feature]FeatureSpec{
-				testAlphaGate: {Default: false, PreRelease: Alpha},
-				testBetaGate:  {Default: false, PreRelease: Beta},
+				testAlphaGate: {
+					Default:    false,
+					PreRelease: Alpha,
+					History: (&FeatureHistory{
+						Changes: map[K8sVersion][]HistoryEvent{
+							V1_29: {PromotedToAlpha},
+						},
+					}).Build(),
+				},
+				testBetaGate: {
+					Default:    false,
+					PreRelease: Beta,
+					History: (&FeatureHistory{
+						Changes: map[K8sVersion][]HistoryEvent{
+							V1_28: {PromotedToAlpha},
+							V1_29: {PromotedToBeta},
+						},
+					}).Build(),
+				},
 			})
 			f.AddFlag(fs)
 
@@ -238,10 +255,27 @@ func TestFeatureGateOverride(t *testing.T) {
 	const testBetaGate Feature = "TestBeta"
 
 	// Don't parse the flag, assert defaults are used.
-	var f *featureGate = NewFeatureGate()
+	var f *featureGate = NewFeatureGateForTest("1.29")
 	f.Add(map[Feature]FeatureSpec{
-		testAlphaGate: {Default: false, PreRelease: Alpha},
-		testBetaGate:  {Default: false, PreRelease: Beta},
+		testAlphaGate: {
+			Default:    false,
+			PreRelease: Alpha,
+			History: (&FeatureHistory{
+				Changes: map[K8sVersion][]HistoryEvent{
+					V1_29: {PromotedToAlpha},
+				},
+			}).Build(),
+		},
+		testBetaGate: {
+			Default:    false,
+			PreRelease: Beta,
+			History: (&FeatureHistory{
+				Changes: map[K8sVersion][]HistoryEvent{
+					V1_28: {PromotedToAlpha},
+					V1_29: {PromotedToBeta},
+				},
+			}).Build(),
+		},
 	})
 
 	f.Set("TestAlpha=true,TestBeta=true")
@@ -267,10 +301,27 @@ func TestFeatureGateFlagDefaults(t *testing.T) {
 	const testBetaGate Feature = "TestBeta"
 
 	// Don't parse the flag, assert defaults are used.
-	var f *featureGate = NewFeatureGate()
+	var f *featureGate = NewFeatureGateForTest("1.29")
 	f.Add(map[Feature]FeatureSpec{
-		testAlphaGate: {Default: false, PreRelease: Alpha},
-		testBetaGate:  {Default: true, PreRelease: Beta},
+		testAlphaGate: {
+			Default:    false,
+			PreRelease: Alpha,
+			History: (&FeatureHistory{
+				Changes: map[K8sVersion][]HistoryEvent{
+					V1_29: {PromotedToAlpha},
+				},
+			}).Build(),
+		},
+		testBetaGate: {
+			Default:    true,
+			PreRelease: Beta,
+			History: (&FeatureHistory{
+				Changes: map[K8sVersion][]HistoryEvent{
+					V1_28: {PromotedToAlpha},
+					V1_29: {PromotedToBeta, DefaultEnabled},
+				},
+			}).Build(),
+		},
 	})
 
 	if f.Enabled(testAlphaGate) != false {
@@ -291,12 +342,50 @@ func TestFeatureGateKnownFeatures(t *testing.T) {
 	)
 
 	// Don't parse the flag, assert defaults are used.
-	var f *featureGate = NewFeatureGate()
+	var f = NewFeatureGateForTest("1.29")
 	f.Add(map[Feature]FeatureSpec{
-		testAlphaGate:      {Default: false, PreRelease: Alpha},
-		testBetaGate:       {Default: true, PreRelease: Beta},
-		testGAGate:         {Default: true, PreRelease: GA},
-		testDeprecatedGate: {Default: false, PreRelease: Deprecated},
+		testAlphaGate: {
+			Default:    false,
+			PreRelease: Alpha,
+			History: (&FeatureHistory{
+				Changes: map[K8sVersion][]HistoryEvent{
+					V1_29: {PromotedToAlpha},
+				},
+			}).Build(),
+		},
+		testBetaGate: {
+			Default:    true,
+			PreRelease: Beta,
+			History: (&FeatureHistory{
+				Changes: map[K8sVersion][]HistoryEvent{
+					V1_28: {PromotedToAlpha},
+					V1_29: {PromotedToBeta, DefaultEnabled},
+				},
+			}).Build(),
+		},
+		testGAGate: {
+			Default:    true,
+			PreRelease: GA,
+			History: (&FeatureHistory{
+				Changes: map[K8sVersion][]HistoryEvent{
+					V1_27: {PromotedToAlpha},
+					V1_28: {PromotedToBeta, DefaultEnabled},
+					V1_29: {PromotedToGA},
+				},
+			}).Build(),
+		},
+		testDeprecatedGate: {
+			Default:    false,
+			PreRelease: Deprecated,
+			History: (&FeatureHistory{
+				Changes: map[K8sVersion][]HistoryEvent{
+					V1_26: {PromotedToAlpha},
+					V1_27: {PromotedToBeta, DefaultEnabled},
+					V1_28: {PromotedToGA},
+					V1_29: {FeatureDeprecated},
+				},
+			}).Build(),
+		},
 	})
 
 	known := strings.Join(f.KnownFeatures(), " ")
@@ -398,12 +487,51 @@ func TestFeatureGateSetFromMap(t *testing.T) {
 	}
 	for i, test := range tests {
 		t.Run(fmt.Sprintf("SetFromMap %s", test.name), func(t *testing.T) {
-			f := NewFeatureGate()
+			f := NewFeatureGateForTest("1.29")
 			f.Add(map[Feature]FeatureSpec{
-				testAlphaGate:       {Default: false, PreRelease: Alpha},
-				testBetaGate:        {Default: false, PreRelease: Beta},
-				testLockedTrueGate:  {Default: true, PreRelease: GA, LockToDefault: true},
-				testLockedFalseGate: {Default: false, PreRelease: GA, LockToDefault: true},
+				testAlphaGate: {
+					Default:    false,
+					PreRelease: Alpha,
+					History: (&FeatureHistory{
+						Changes: map[K8sVersion][]HistoryEvent{
+							V1_29: {PromotedToAlpha},
+						},
+					}).Build(),
+				},
+				testBetaGate: {
+					Default:    false,
+					PreRelease: Beta,
+					History: (&FeatureHistory{
+						Changes: map[K8sVersion][]HistoryEvent{
+							V1_28: {PromotedToAlpha},
+							V1_29: {PromotedToBeta},
+						},
+					}).Build(),
+				},
+				testLockedTrueGate: {
+					Default:       true,
+					PreRelease:    GA,
+					LockToDefault: true,
+					History: (&FeatureHistory{
+						Changes: map[K8sVersion][]HistoryEvent{
+							V1_27: {PromotedToAlpha},
+							V1_28: {PromotedToBeta, DefaultEnabled},
+							V1_29: {PromotedToGA, LockedToDefault},
+						},
+					}).Build(),
+				},
+				testLockedFalseGate: {
+					Default:       false,
+					PreRelease:    GA,
+					LockToDefault: true,
+					History: (&FeatureHistory{
+						Changes: map[K8sVersion][]HistoryEvent{
+							V1_27: {PromotedToAlpha},
+							V1_28: {PromotedToBeta},
+							V1_29: {PromotedToGA, LockedToDefault},
+						},
+					}).Build(),
+				},
 			})
 			err := f.SetFromMap(test.setmap)
 			if test.setmapError != "" {
@@ -440,15 +568,49 @@ func TestFeatureGateMetrics(t *testing.T) {
 		kubernetes_feature_enabled{name="TestAlphaEnabled",stage="ALPHA"} 1
         kubernetes_feature_enabled{name="AllAlpha",stage="ALPHA"} 0
         kubernetes_feature_enabled{name="AllBeta",stage="BETA"} 0
-		kubernetes_feature_enabled{name="TestBetaDisabled",stage="ALPHA"} 0
+		kubernetes_feature_enabled{name="TestBetaDisabled",stage="BETA"} 0
 `
 
-	f := NewFeatureGate()
+	f := NewFeatureGateForTest("1.29")
 	fMap := map[Feature]FeatureSpec{
-		testAlphaGate:    {Default: false, PreRelease: Alpha},
-		testAlphaEnabled: {Default: false, PreRelease: Alpha},
-		testBetaGate:     {Default: true, PreRelease: Beta},
-		testBetaDisabled: {Default: true, PreRelease: Alpha},
+		testAlphaGate: {
+			Default:    false,
+			PreRelease: Alpha,
+			History: (&FeatureHistory{
+				Changes: map[K8sVersion][]HistoryEvent{
+					V1_29: {PromotedToAlpha},
+				},
+			}).Build(),
+		},
+		testAlphaEnabled: {
+			Default:    false,
+			PreRelease: Alpha,
+			History: (&FeatureHistory{
+				Changes: map[K8sVersion][]HistoryEvent{
+					V1_29: {PromotedToAlpha},
+				},
+			}).Build(),
+		},
+		testBetaGate: {
+			Default:    true,
+			PreRelease: Beta,
+			History: (&FeatureHistory{
+				Changes: map[K8sVersion][]HistoryEvent{
+					V1_28: {PromotedToAlpha},
+					V1_29: {PromotedToBeta, DefaultEnabled},
+				},
+			}).Build(),
+		},
+		testBetaDisabled: {
+			Default:    true,
+			PreRelease: Beta,
+			History: (&FeatureHistory{
+				Changes: map[K8sVersion][]HistoryEvent{
+					V1_28: {PromotedToAlpha},
+					V1_29: {PromotedToBeta, DefaultEnabled},
+				},
+			}).Build(),
+		},
 	}
 	f.Add(fMap)
 	f.SetFromMap(map[string]bool{"TestAlphaEnabled": true, "TestBetaDisabled": false})
@@ -465,9 +627,36 @@ func TestFeatureGateString(t *testing.T) {
 	const testGAGate Feature = "TestGA"
 
 	featuremap := map[Feature]FeatureSpec{
-		testGAGate:    {Default: true, PreRelease: GA},
-		testAlphaGate: {Default: false, PreRelease: Alpha},
-		testBetaGate:  {Default: true, PreRelease: Beta},
+		testGAGate: {
+			Default:    true,
+			PreRelease: GA,
+			History: (&FeatureHistory{
+				Changes: map[K8sVersion][]HistoryEvent{
+					V1_27: {PromotedToAlpha},
+					V1_28: {PromotedToBeta, DefaultEnabled},
+					V1_29: {PromotedToGA},
+				},
+			}).Build(),
+		},
+		testAlphaGate: {
+			Default:    false,
+			PreRelease: Alpha,
+			History: (&FeatureHistory{
+				Changes: map[K8sVersion][]HistoryEvent{
+					V1_29: {PromotedToAlpha},
+				},
+			}).Build(),
+		},
+		testBetaGate: {
+			Default:    true,
+			PreRelease: Beta,
+			History: (&FeatureHistory{
+				Changes: map[K8sVersion][]HistoryEvent{
+					V1_28: {PromotedToAlpha},
+					V1_29: {PromotedToBeta, DefaultEnabled},
+				},
+			}).Build(),
+		},
 	}
 
 	tests := []struct {
@@ -498,7 +687,7 @@ func TestFeatureGateString(t *testing.T) {
 	}
 	for i, test := range tests {
 		t.Run(fmt.Sprintf("SetFromMap %s", test.expect), func(t *testing.T) {
-			f := NewFeatureGate()
+			f := NewFeatureGateForTest("1.29")
 			f.Add(featuremap)
 			f.SetFromMap(test.setmap)
 			result := f.String()
