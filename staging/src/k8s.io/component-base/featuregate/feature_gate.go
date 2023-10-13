@@ -18,17 +18,21 @@ package featuregate
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"reflect"
 	"sort"
 	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
 
+	"github.com/blang/semver/v4"
 	"github.com/spf13/pflag"
 
 	"k8s.io/apimachinery/pkg/util/naming"
 	featuremetrics "k8s.io/component-base/metrics/prometheus/feature"
+	"k8s.io/component-base/version"
 	"k8s.io/klog/v2"
 )
 
@@ -52,16 +56,18 @@ const (
 
 var (
 	// The generic features.
-	defaultFeatures = map[Feature]FeatureSpec{
-		allAlphaGate: {Default: false, PreRelease: Alpha},
-		allBetaGate:  {Default: false, PreRelease: Beta},
+	defaultFeatures = map[Feature]VersionedSpecs{
+		allAlphaGate: {{Default: false, PreRelease: Alpha}},
+		allBetaGate:  {{Default: false, PreRelease: Beta}},
 	}
 
 	// Special handling for a few gates.
-	specialFeatures = map[Feature]func(known map[Feature]FeatureSpec, enabled map[Feature]bool, val bool){
+	specialFeatures = map[Feature]func(known map[Feature]VersionedSpecs, enabled map[Feature]bool, val bool, cVer semver.Version){
 		allAlphaGate: setUnsetAlphaGates,
 		allBetaGate:  setUnsetBetaGates,
 	}
+
+	ErrMajorAndMinorOnly = errors.New("version string must only contain major and minor")
 )
 
 type FeatureSpec struct {
@@ -69,13 +75,24 @@ type FeatureSpec struct {
 	Default bool
 	// LockToDefault indicates that the feature is locked to its default and cannot be changed
 	LockToDefault bool
-	// PreRelease indicates the maturity level of the feature
+	// PreRelease indicates the current maturity level of the feature
 	PreRelease prerelease
+	// Version indicates the version from which this configuration is valid.
+	Version semver.Version
 }
+
+type VersionedSpecs []FeatureSpec
+
+func (g VersionedSpecs) Len() int           { return len(g) }
+func (g VersionedSpecs) Less(i, j int) bool { return g[i].Version.LT(g[j].Version) }
+func (g VersionedSpecs) Swap(i, j int)      { g[i], g[j] = g[j], g[i] }
+
+type PromotionVersionMapping map[prerelease]string
 
 type prerelease string
 
 const (
+	preAlpha = prerelease("PRE-ALPHA")
 	// Values for PreRelease.
 	Alpha = prerelease("ALPHA")
 	Beta  = prerelease("BETA")
@@ -110,9 +127,9 @@ type MutableFeatureGate interface {
 	// SetFromMap stores flag gates for known features from a map[string]bool or returns an error
 	SetFromMap(m map[string]bool) error
 	// Add adds features to the featureGate.
-	Add(features map[Feature]FeatureSpec) error
+	Add(features map[Feature]VersionedSpecs) error
 	// GetAll returns a copy of the map of known feature names to feature specs.
-	GetAll() map[Feature]FeatureSpec
+	GetAll() map[Feature]VersionedSpecs
 	// AddMetrics adds feature enablement metrics
 	AddMetrics()
 }
@@ -121,7 +138,7 @@ type MutableFeatureGate interface {
 type featureGate struct {
 	featureGateName string
 
-	special map[Feature]func(map[Feature]FeatureSpec, map[Feature]bool, bool)
+	special map[Feature]func(map[Feature]VersionedSpecs, map[Feature]bool, bool, semver.Version)
 
 	// lock guards writes to known, enabled, and reads/writes of closed
 	lock sync.Mutex
@@ -131,11 +148,25 @@ type featureGate struct {
 	enabled *atomic.Value
 	// closed is set to true when AddFlag is called, and prevents subsequent calls to Add
 	closed bool
+
+	compatibilityVersion semver.Version
+
+	binaryVersion semver.Version
 }
 
-func setUnsetAlphaGates(known map[Feature]FeatureSpec, enabled map[Feature]bool, val bool) {
+func setUnsetAlphaGates(known map[Feature]VersionedSpecs, enabled map[Feature]bool, val bool, cVer semver.Version) {
 	for k, v := range known {
-		if v.PreRelease == Alpha {
+		if k == "AllAlpha" || k == "AllBeta" {
+			continue
+		}
+		i := len(v) - 1
+		for ; i >= 0; i-- {
+			if v[i].Version.GT(cVer) {
+				continue
+			}
+			break
+		}
+		if v[i].PreRelease == Alpha {
 			if _, found := enabled[k]; !found {
 				enabled[k] = val
 			}
@@ -143,9 +174,19 @@ func setUnsetAlphaGates(known map[Feature]FeatureSpec, enabled map[Feature]bool,
 	}
 }
 
-func setUnsetBetaGates(known map[Feature]FeatureSpec, enabled map[Feature]bool, val bool) {
+func setUnsetBetaGates(known map[Feature]VersionedSpecs, enabled map[Feature]bool, val bool, cVer semver.Version) {
 	for k, v := range known {
-		if v.PreRelease == Beta {
+		if k == "AllAlpha" || k == "AllBeta" {
+			continue
+		}
+		i := len(v) - 1
+		for ; i >= 0; i-- {
+			if v[i].Version.GT(cVer) {
+				continue
+			}
+			break
+		}
+		if v[i].PreRelease == Beta {
 			if _, found := enabled[k]; !found {
 				enabled[k] = val
 			}
@@ -160,8 +201,12 @@ var _ pflag.Value = &featureGate{}
 // call chains, so they'd be unhelpful as names.
 var internalPackages = []string{"k8s.io/component-base/featuregate/feature_gate.go"}
 
-func NewFeatureGate() *featureGate {
-	known := map[Feature]FeatureSpec{}
+func NewFeatureGateForTest(binaryVersion string) *featureGate {
+	return newFeatureGateWithBinaryVersion(binaryVersion)
+}
+
+func newFeatureGateWithBinaryVersion(binaryVersion string) *featureGate {
+	known := map[Feature]VersionedSpecs{}
 	for k, v := range defaultFeatures {
 		known[k] = v
 	}
@@ -179,7 +224,12 @@ func NewFeatureGate() *featureGate {
 		special:         specialFeatures,
 		enabled:         enabledValue,
 	}
+	f.binaryVersion = mustParseVersion(binaryVersion)
 	return f
+}
+
+func NewFeatureGate() *featureGate {
+	return newFeatureGateWithBinaryVersion(fmt.Sprintf("%s.%s", version.Get().Major, version.Get().Minor))
 }
 
 // Set parses a string of the form "key1=value1,key2=value2,..." into a
@@ -211,8 +261,9 @@ func (f *featureGate) SetFromMap(m map[string]bool) error {
 	defer f.lock.Unlock()
 
 	// Copy existing state
-	known := map[Feature]FeatureSpec{}
-	for k, v := range f.known.Load().(map[Feature]FeatureSpec) {
+	known := map[Feature]VersionedSpecs{}
+	for k, v := range f.known.Load().(map[Feature]VersionedSpecs) {
+		sort.Sort(v)
 		known[k] = v
 	}
 	enabled := map[Feature]bool{}
@@ -221,23 +272,24 @@ func (f *featureGate) SetFromMap(m map[string]bool) error {
 	}
 
 	for k, v := range m {
-		k := Feature(k)
-		featureSpec, ok := known[k]
+		key := Feature(k)
+		versionedSpecs, ok := known[key]
 		if !ok {
 			return fmt.Errorf("unrecognized feature gate: %s", k)
 		}
-		if featureSpec.LockToDefault && featureSpec.Default != v {
-			return fmt.Errorf("cannot set feature gate %v to %v, feature is locked to %v", k, v, featureSpec.Default)
+		currentVersion := f.getCurrentVersion(versionedSpecs)
+		if currentVersion.LockToDefault && currentVersion.Default != v {
+			return fmt.Errorf("cannot set feature gate %v to %v, feature is locked to %v", k, v, currentVersion.Default)
 		}
-		enabled[k] = v
+		enabled[key] = v
 		// Handle "special" features like "all alpha gates"
-		if fn, found := f.special[k]; found {
-			fn(known, enabled, v)
+		if fn, found := f.special[key]; found {
+			fn(known, enabled, v, f.compatibilityVersion)
 		}
 
-		if featureSpec.PreRelease == Deprecated {
+		if currentVersion.PreRelease == Deprecated {
 			klog.Warningf("Setting deprecated feature gate %s=%t. It will be removed in a future release.", k, v)
-		} else if featureSpec.PreRelease == GA {
+		} else if currentVersion.PreRelease == GA {
 			klog.Warningf("Setting GA feature gate %s=%t. It will be removed in a future release.", k, v)
 		}
 	}
@@ -265,7 +317,7 @@ func (f *featureGate) Type() string {
 }
 
 // Add adds features to the featureGate.
-func (f *featureGate) Add(features map[Feature]FeatureSpec) error {
+func (f *featureGate) Add(features map[Feature]VersionedSpecs) error {
 	f.lock.Lock()
 	defer f.lock.Unlock()
 
@@ -274,20 +326,21 @@ func (f *featureGate) Add(features map[Feature]FeatureSpec) error {
 	}
 
 	// Copy existing state
-	known := map[Feature]FeatureSpec{}
-	for k, v := range f.known.Load().(map[Feature]FeatureSpec) {
+	known := map[Feature]VersionedSpecs{}
+	for k, v := range f.known.Load().(map[Feature]VersionedSpecs) {
 		known[k] = v
 	}
 
-	for name, spec := range features {
+	for name, specs := range features {
+		sort.Sort(specs)
 		if existingSpec, found := known[name]; found {
-			if existingSpec == spec {
+			sort.Sort(existingSpec)
+			if reflect.DeepEqual(existingSpec, specs) {
 				continue
 			}
 			return fmt.Errorf("feature gate %q with different spec already exists: %v", name, existingSpec)
 		}
-
-		known[name] = spec
+		known[name] = specs
 	}
 
 	// Persist updated state
@@ -297,24 +350,54 @@ func (f *featureGate) Add(features map[Feature]FeatureSpec) error {
 }
 
 // GetAll returns a copy of the map of known feature names to feature specs.
-func (f *featureGate) GetAll() map[Feature]FeatureSpec {
-	retval := map[Feature]FeatureSpec{}
-	for k, v := range f.known.Load().(map[Feature]FeatureSpec) {
+func (f *featureGate) GetAll() map[Feature]VersionedSpecs {
+	retval := map[Feature]VersionedSpecs{}
+	for k, v := range f.known.Load().(map[Feature]VersionedSpecs) {
 		retval[k] = v
 	}
 	return retval
 }
 
+func (f *featureGate) SetCompatibilityVersion(v string) {
+	f.compatibilityVersion = mustParseVersion(v)
+}
+
 // Enabled returns true if the key is enabled.  If the key is not known, this call will panic.
 func (f *featureGate) Enabled(key Feature) bool {
+	// fallback to default behavior, since we don't have compatibility version set
 	if v, ok := f.enabled.Load().(map[Feature]bool)[key]; ok {
 		return v
 	}
-	if v, ok := f.known.Load().(map[Feature]FeatureSpec)[key]; ok {
-		return v.Default
+	if v, ok := f.known.Load().(map[Feature]VersionedSpecs)[key]; ok {
+		return f.getCurrentVersion(v).Default
 	}
 
 	panic(fmt.Errorf("feature %q is not registered in FeatureGate %q", key, f.featureGateName))
+}
+
+func (f *featureGate) getCurrentVersion(v VersionedSpecs) FeatureSpec {
+	i := len(v) - 1
+	for ; i >= 0; i-- {
+		if v[i].Version.GT(f.compatibilityVersion) {
+			continue
+		}
+		return v[i]
+	}
+	return FeatureSpec{
+		Default:    false,
+		PreRelease: preAlpha,
+	}
+}
+
+func mustParseVersion(ver string) semver.Version {
+	if len(strings.Split(ver, ".")) != 2 {
+		panic(ErrMajorAndMinorOnly)
+	}
+	compatibilityVersion, err := semver.ParseTolerant(ver)
+	if err != nil {
+		panic(err)
+	}
+	return compatibilityVersion
 }
 
 // AddFlag adds a flag for setting global feature gates to the specified FlagSet.
@@ -334,8 +417,8 @@ func (f *featureGate) AddFlag(fs *pflag.FlagSet) {
 }
 
 func (f *featureGate) AddMetrics() {
-	for feature, featureSpec := range f.GetAll() {
-		featuremetrics.RecordFeatureInfo(context.Background(), string(feature), string(featureSpec.PreRelease), f.Enabled(feature))
+	for feature, versionedSpecs := range f.GetAll() {
+		featuremetrics.RecordFeatureInfo(context.Background(), string(feature), string(f.getCurrentVersion(versionedSpecs).PreRelease), f.Enabled(feature))
 	}
 }
 
@@ -343,11 +426,16 @@ func (f *featureGate) AddMetrics() {
 // Deprecated and GA features are hidden from the list.
 func (f *featureGate) KnownFeatures() []string {
 	var known []string
-	for k, v := range f.known.Load().(map[Feature]FeatureSpec) {
-		if v.PreRelease == GA || v.PreRelease == Deprecated {
+	for k, v := range f.known.Load().(map[Feature]VersionedSpecs) {
+		if k == "AllAlpha" || k == "AllBeta" {
+			known = append(known, fmt.Sprintf("%s=true|false (%s - default=%t)", k, v[0].PreRelease, v[0].Default))
 			continue
 		}
-		known = append(known, fmt.Sprintf("%s=true|false (%s - default=%t)", k, v.PreRelease, v.Default))
+		currentV := f.getCurrentVersion(v)
+		if currentV.PreRelease == GA || currentV.PreRelease == Deprecated {
+			continue
+		}
+		known = append(known, fmt.Sprintf("%s=true|false (%s - default=%t)", k, currentV.PreRelease, currentV.Default))
 	}
 	sort.Strings(known)
 	return known
